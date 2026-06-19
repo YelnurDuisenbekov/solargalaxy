@@ -4,9 +4,12 @@ import './Contact.css';
 
 /* Контакты */
 const CONTACTS = {
-  phone: '+7 700 000 0841',
-  phoneHref: 'tel:+77000000841',
-  address: 'г. Шымкент, ул. Жибек Жолы, 71/6',
+  phone: '+7 700 330 1999',
+  phoneHref: 'tel:+77003301999',
+  city: 'г. Шымкент',
+  address: 'ул. Байтурсынова 85 (БЦ Орда), каб. 210',
+  fullAddress: 'г. Шымкент, ул. Байтурсынова 85 (БЦ Орда), каб. 210',
+  mapQuery: 'Шымкент, ул. Байтурсынова 85',
   hours: 'Пн–Пт: 9:00–18:00',
 };
 
@@ -43,7 +46,8 @@ export default function Contact() {
             </div>
             <div className="card contact-card">
               <span className="contact-card__label">Адрес</span>
-              <p className="contact-card__value">{CONTACTS.address}</p>
+              <p className="contact-card__value">{CONTACTS.city}</p>
+              <p className="contact-card__value contact-card__value--sub">{CONTACTS.address}</p>
             </div>
             <div className="card contact-card">
               <span className="contact-card__label">Режим работы</span>
@@ -52,7 +56,7 @@ export default function Contact() {
             <div className="card contact-card">
               <span className="contact-card__label">География</span>
               <p className="contact-card__value contact-card__value--muted">
-                Шымкент, Туркестан, Жетысай, Сарыагаш и весь Казахстан
+                Весь Казахстан
               </p>
             </div>
           </div>
@@ -66,6 +70,32 @@ export default function Contact() {
             <button type="submit" className="btn btn--primary">Отправить заявку</button>
             {msg && <p className="contact-form__msg">{msg}</p>}
           </form>
+        </div>
+      </section>
+
+      {/* Карта */}
+      <section className="section section--alt contact-map-section">
+        <div className="container">
+          <span className="section__label">Как нас найти</span>
+          <h2 className="section__title">Офис в Шымкенте</h2>
+          <p className="section__desc">{CONTACTS.fullAddress}</p>
+          <div className="contact-map">
+            <iframe
+              title="Карта — Solar Galaxy, Шымкент"
+              src={`https://yandex.kz/map-widget/v1/?text=${encodeURIComponent(CONTACTS.mapQuery)}&z=17`}
+              allowFullScreen
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          </div>
+          <a
+            href={`https://yandex.kz/maps/?text=${encodeURIComponent(CONTACTS.mapQuery)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="contact-map__link"
+          >
+            Открыть в Яндекс Картах
+          </a>
         </div>
       </section>
     </>

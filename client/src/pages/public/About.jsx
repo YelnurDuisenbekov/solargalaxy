@@ -170,7 +170,7 @@ export default function About() {
       <section className="about-cta">
         <div className="container">
           <h2>Готовы рассчитать окупаемость для вашего объекта?</h2>
-          <p>Инженеры Solar Galaxy подготовят предварительный расчёт за 1 рабочий день. Шымкент, ул. Жибек Жолы, 71/6 · +7 700 000 0841</p>
+          <p>Инженеры Solar Galaxy подготовят предварительный расчёт за 1 рабочий день. г. Шымкент, ул. Байтурсынова 85 (БЦ Орда), каб. 210 · +7 700 330 1999</p>
           <Link to="/contact" className="btn btn--primary">Получить расчёт</Link>
         </div>
       </section>

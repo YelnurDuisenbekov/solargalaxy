@@ -53,6 +53,43 @@ a.contact-card__value:hover { color: var(--green); }
   color: var(--text-muted);
 }
 
+.contact-card__value--sub {
+  margin-top: 4px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.contact-map-section .section__desc {
+  margin-bottom: 24px;
+}
+
+.contact-map {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  background: var(--white);
+}
+
+.contact-map iframe {
+  display: block;
+  width: 100%;
+  height: 420px;
+  border: 0;
+}
+
+.contact-map__link {
+  display: inline-block;
+  margin-top: 14px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--blue);
+}
+
+.contact-map__link:hover {
+  color: var(--green);
+}
+
 .contact-form {
   display: flex;
   flex-direction: column;
@@ -72,4 +109,5 @@ a.contact-card__value:hover { color: var(--green); }
 
 @media (max-width: 768px) {
   .contact-grid { grid-template-columns: 1fr; }
+  .contact-map iframe { height: 300px; }
 }
