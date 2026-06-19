@@ -1,0 +1,97 @@
+:root {
+  /* Бренд Solar Galaxy */
+  --green: #2DC56E;
+  --green-dark: #24a85a;
+  --blue: #12528C;
+  --blue-dark: #0d3d68;
+  --primary: #12528C;
+  --accent: #2DC56E;
+  --accent-dark: #24a85a;
+  --success: #2DC56E;
+  --bg: #f7f9fc;
+  --bg-alt: #eef3f8;
+  --text: #1a2332;
+  --text-muted: #5a6a7e;
+  --white: #fff;
+  --dark: #0f1c2e;
+  --radius: 10px;
+  --radius-lg: 12px;
+  --shadow: 0 4px 24px rgba(18, 82, 140, 0.08);
+  --shadow-lg: 0 12px 40px rgba(18, 82, 140, 0.12);
+  --border: #e2e8f0;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+a { color: inherit; text-decoration: none; }
+
+.container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 12px 24px; border: none; border-radius: var(--radius);
+  font-family: inherit; font-size: 0.9375rem; font-weight: 600;
+  cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+}
+.btn--primary { background: var(--green); color: var(--white); }
+.btn--primary:hover { background: var(--green-dark); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(45,197,110,0.35); }
+.btn--outline { background: transparent; border: 2px solid var(--white); color: var(--white); }
+.btn--outline-dark { background: transparent; border: 2px solid var(--blue); color: var(--blue); }
+.btn--outline-dark:hover { background: var(--bg-alt); }
+.btn--dark { background: var(--blue); color: var(--white); }
+.btn--dark:hover { background: var(--blue-dark); }
+
+.card {
+  background: var(--white); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow); padding: 24px;
+  border: 1px solid var(--border);
+}
+
+/* Общие секции публичных страниц */
+.section { padding: 72px 0; }
+.section--alt { background: var(--bg-alt); }
+.section__label {
+  display: inline-block; font-size: 0.75rem; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--green);
+  margin-bottom: 12px;
+}
+.section__title {
+  font-size: clamp(1.5rem, 3vw, 2rem); color: var(--blue);
+  margin-bottom: 16px; line-height: 1.25;
+}
+.section__desc {
+  color: var(--text-muted); max-width: 640px; line-height: 1.7;
+  font-size: 1rem;
+}
+
+.input {
+  width: 100%; padding: 11px 14px; border: 1.5px solid #d1d5db;
+  border-radius: var(--radius); font-family: inherit; font-size: 0.9375rem;
+}
+.input:focus { outline: none; border-color: var(--green); }
+
+.table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.table th, .table td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+.table th { background: var(--bg); font-weight: 600; color: var(--primary); }
+
+.badge {
+  display: inline-block; padding: 4px 10px; border-radius: 999px;
+  font-size: 0.75rem; font-weight: 600;
+}
+.badge--new { background: #dbeafe; color: #1d4ed8; }
+.badge--progress { background: #fef3c7; color: #b45309; }
+.badge--won { background: #d1fae5; color: #047857; }
+.badge--lost { background: #fee2e2; color: #b91c1c; }
+
+.error-msg { color: #b91c1c; font-size: 0.875rem; margin-top: 8px; }
+
+@media (max-width: 768px) {
+  .container { padding: 0 14px; }
+}

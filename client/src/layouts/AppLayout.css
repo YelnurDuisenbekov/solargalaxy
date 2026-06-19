@@ -1,0 +1,28 @@
+.app-layout { display: flex; min-height: 100vh; }
+.app-sidebar {
+  width: 240px; flex-shrink: 0; background: var(--primary); color: var(--white);
+  padding: 24px 16px; display: flex; flex-direction: column; gap: 8px;
+}
+.app-sidebar__brand { font-size: 1.25rem; font-weight: 700; margin-bottom: 16px; }
+.app-sidebar__brand span { color: var(--accent); }
+.app-sidebar__user { font-size: 0.875rem; opacity: 0.9; }
+.app-sidebar__role { font-size: 0.75rem; opacity: 0.55; text-transform: uppercase; margin-bottom: 16px; }
+.app-sidebar__nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.app-sidebar__link {
+  padding: 10px 14px; border-radius: 8px; font-size: 0.9375rem; font-weight: 500;
+  color: rgba(255,255,255,0.8); transition: background 0.15s;
+}
+.app-sidebar__link:hover, .app-sidebar__link.active { background: rgba(245,158,11,0.15); color: var(--accent); }
+.app-sidebar__logout {
+  margin-top: auto; padding: 10px; border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 8px; background: transparent; color: var(--white);
+  font-family: inherit; cursor: pointer;
+}
+.app-main { flex: 1; padding: 32px 24px; overflow-x: auto; }
+@media (max-width: 768px) {
+  .app-layout { flex-direction: column; }
+  .app-sidebar { width: 100%; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 12px; }
+  .app-sidebar__nav { flex-direction: row; flex-wrap: wrap; flex: 1; }
+  .app-sidebar__logout { margin-top: 0; }
+  .app-main { padding: 20px 14px; }
+}

@@ -1,0 +1,13 @@
+.public-layout { min-height: 100vh; display: flex; flex-direction: column; }
+.public-header { background: var(--primary); color: var(--white); position: sticky; top: 0; z-index: 50; }
+.public-header__inner { display: flex; align-items: center; justify-content: space-between; height: 64px; gap: 16px; }
+.public-logo { font-size: 1.375rem; font-weight: 700; letter-spacing: -0.02em; }
+.public-logo span { color: var(--green); }
+.public-nav { display: flex; align-items: center; gap: 20px; font-size: 0.9375rem; font-weight: 500; }
+.public-nav a:hover { color: var(--green); }
+.public-nav__app { color: var(--green) !important; }
+.public-footer { margin-top: auto; padding: 24px 0; background: var(--primary); color: rgba(255,255,255,0.7); font-size: 0.875rem; text-align: center; }
+@media (max-width: 640px) {
+  .public-nav { gap: 10px; font-size: 0.8125rem; flex-wrap: wrap; justify-content: flex-end; }
+  .public-header__inner { height: auto; padding: 12px 0; flex-wrap: wrap; }
+}
