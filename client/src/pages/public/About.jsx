@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
+import { Reveal, RevealGroup, RevealItem } from '../../components/motion/ScrollReveal';
 import { formatNum } from '../../utils/format';
 import './About.css';
 
-/* Изображения: премиальные фото солнечной энергетики */
 const IMAGES = {
   eps: 'https://images.unsplash.com/photo-1508514177221-188b1cf16e9d?w=800&q=80',
   panels: 'https://images.unsplash.com/photo-1509391366360-2e959784a276?w=800&q=80',
@@ -10,7 +10,6 @@ const IMAGES = {
   roof: 'https://images.unsplash.com/photo-1558449028-b53a39d100fc?w=800&q=80',
 };
 
-/* Ключевые цифры по тарифам РК (источники: Минэнерго, 2024–2025) */
 const STATS = [
   { value: 'до 70%', label: 'экономия на электроэнергии' },
   { value: 'от 2 лет', label: 'срок окупаемости при коммерческом потреблении' },
@@ -37,25 +36,46 @@ const BENEFITS = [
   },
 ];
 
+const SOLAR_CARDS = [
+  {
+    img: IMAGES.panels,
+    alt: 'Солнечные панели высокой эффективности',
+    title: 'Панели нового поколения',
+    text: 'Монокристалл с КПД до 24% — больше киловатт-часов с каждого квадратного метра кровли.',
+  },
+  {
+    img: IMAGES.farm,
+    alt: 'Солнечная электростанция в степи Казахстана',
+    title: 'Любая мощность',
+    text: 'Хоть 2 кВт, хоть 2 МВт — единый инжиниринговый стандарт EPS на любом объекте.',
+  },
+  {
+    img: IMAGES.roof,
+    alt: 'СЭС на крыше коммерческого здания',
+    title: 'Сетевая и гибридная СЭС',
+    text: 'Подключение к сети, резерв при отключениях, интеграция с системами учёта предприятия.',
+  },
+];
+
 export default function About() {
   return (
     <>
-      {/* Вводная секция */}
       <section className="about-hero">
         <div className="container">
-          <h1>О компании Solar Galaxy</h1>
-          <p>
-            Инжиниринговая компания полного цикла: проектируем, поставляем
-            и монтируем солнечные электростанции «под ключ» для бизнеса, частного сектора,
-            сельхозкомплексов и государственных учреждений по всему Казахстану.
-          </p>
+          <Reveal>
+            <h1>О компании Solar Galaxy</h1>
+            <p>
+              Инжиниринговая компания полного цикла: проектируем, поставляем
+              и монтируем солнечные электростанции «под ключ» для бизнеса, частного сектора,
+              сельхозкомплексов и государственных учреждений по всему Казахстану.
+            </p>
+          </Reveal>
         </div>
       </section>
 
-      {/* Проект EPS */}
       <section className="section">
         <div className="container about-eps">
-          <div>
+          <Reveal>
             <span className="about-eps__badge">Флагманский проект</span>
             <h2 className="section__title">EPS — Energy Performance System</h2>
             <p className="section__desc">
@@ -70,108 +90,111 @@ export default function About() {
               <li>Автоматизация учёта и дистанционный контроль станции</li>
               <li>Пусконаладка, сдача в эксплуатацию и сервисное сопровождение</li>
             </ul>
-          </div>
-          <img
-            className="about-eps__img"
-            src={IMAGES.eps}
-            alt="Инженеры Solar Galaxy на объекте солнечной электростанции"
-            loading="lazy"
-          />
+          </Reveal>
+          <Reveal delay={0.1}>
+            <img
+              className="about-eps__img"
+              src={IMAGES.eps}
+              alt="Инженеры Solar Galaxy на объекте солнечной электростанции"
+              loading="lazy"
+            />
+          </Reveal>
         </div>
       </section>
 
-      {/* Солнечная энергетика */}
       <section className="section section--alt">
         <div className="container">
-          <span className="section__label">Технология</span>
-          <h2 className="section__title">Солнечная энергетика сегодня</h2>
-          <p className="section__desc">
-            Казахстан — одна из самых солнечных стран мира: {formatNum(1400)}–{formatNum(1800)} кВт·ч на квадратный
-            метр в год. Современные фотоэлектрические системы превращают это преимущество
-            в реальную экономию и независимость от роста тарифов.
-          </p>
+          <Reveal>
+            <span className="section__label">Технология</span>
+            <h2 className="section__title">Солнечная энергетика сегодня</h2>
+            <p className="section__desc">
+              Казахстан — одна из самых солнечных стран мира: {formatNum(1400)}–{formatNum(1800)} кВт·ч на квадратный
+              метр в год. Современные фотоэлектрические системы превращают это преимущество
+              в реальную экономию и независимость от роста тарифов.
+            </p>
+          </Reveal>
 
-          <div className="about-solar-grid">
-            <article className="card about-solar-card">
-              <img src={IMAGES.panels} alt="Солнечные панели высокой эффективности" loading="lazy" />
-              <div className="about-solar-card__body">
-                <h3>Панели нового поколения</h3>
-                <p>Монокристалл с КПД до 24% — больше киловатт-часов с каждого квадратного метра кровли.</p>
-              </div>
-            </article>
-            <article className="card about-solar-card">
-              <img src={IMAGES.farm} alt="Солнечная электростанция в степи Казахстана" loading="lazy" />
-              <div className="about-solar-card__body">
-                <h3>Любая мощность</h3>
-                <p>Хоть 2 кВт, хоть 2 МВт — единый инжиниринговый стандарт EPS на любом объекте.</p>
-              </div>
-            </article>
-            <article className="card about-solar-card">
-              <img src={IMAGES.roof} alt="СЭС на крыше коммерческого здания" loading="lazy" />
-              <div className="about-solar-card__body">
-                <h3>Сетевая и гибридная СЭС</h3>
-                <p>Подключение к сети, резерв при отключениях, интеграция с системами учёта предприятия.</p>
-              </div>
-            </article>
-          </div>
+          <RevealGroup className="about-solar-grid" stagger={0.1}>
+            {SOLAR_CARDS.map((c) => (
+              <RevealItem key={c.title}>
+                <article className="card about-solar-card">
+                  <img src={c.img} alt={c.alt} loading="lazy" />
+                  <div className="about-solar-card__body">
+                    <h3>{c.title}</h3>
+                    <p>{c.text}</p>
+                  </div>
+                </article>
+              </RevealItem>
+            ))}
+          </RevealGroup>
         </div>
       </section>
 
-      {/* Статистика Казахстана */}
       <section className="section">
         <div className="container">
-          <span className="section__label">Рынок Казахстана</span>
-          <h2 className="section__title">Почему сейчас — лучшее время для СЭС</h2>
-          <p className="section__desc">
-            С 2024 года Минэнерго поэтапно повышает предельные тарифы на электроэнергию:
-            в феврале 2025 — в среднем на 20%, в августе — очередной пересмотр для десятков
-            энергогенерирующих групп. Для бизнеса и домохозяйств это означает рост счетов,
-            а для владельцев СЭС — ускорение окупаемости инвестиции.
-          </p>
+          <Reveal>
+            <span className="section__label">Рынок Казахстана</span>
+            <h2 className="section__title">Почему сейчас — лучшее время для СЭС</h2>
+            <p className="section__desc">
+              С 2024 года Минэнерго поэтапно повышает предельные тарифы на электроэнергию:
+              в феврале 2025 — в среднем на 20%, в августе — очередной пересмотр для десятков
+              энергогенерирующих групп. Для бизнеса и домохозяйств это означает рост счетов,
+              а для владельцев СЭС — ускорение окупаемости инвестиции.
+            </p>
+          </Reveal>
 
-          <div className="about-stats">
+          <RevealGroup className="about-stats" stagger={0.08}>
             {STATS.map((s) => (
-              <div key={s.label} className="card about-stat">
-                <div className="about-stat__value">{s.value}</div>
-                <div className="about-stat__label">{s.label}</div>
-              </div>
+              <RevealItem key={s.label}>
+                <div className="card about-stat">
+                  <div className="about-stat__value">{s.value}</div>
+                  <div className="about-stat__label">{s.label}</div>
+                </div>
+              </RevealItem>
             ))}
-          </div>
+          </RevealGroup>
         </div>
       </section>
 
-      {/* Выгода в реальных условиях */}
       <section className="section section--alt">
         <div className="container">
-          <span className="section__label">Экономика</span>
-          <h2 className="section__title">Насколько выгодны панели в реалиях 2025 года</h2>
-          <p className="section__desc">
-            При текущих тарифах коммерческий потребитель экономит до 70% расходов
-            на электроэнергию. Окупаемость — от 2 лет на объектах с высоким потреблением
-            (торговля, АЗС, производство). Частный сектор с нет-митерингом сокращает
-            платёжки и повышает капитализацию недвижимости.
-          </p>
+          <Reveal>
+            <span className="section__label">Экономика</span>
+            <h2 className="section__title">Насколько выгодны панели в реалиях 2025 года</h2>
+            <p className="section__desc">
+              При текущих тарифах коммерческий потребитель экономит до 70% расходов
+              на электроэнергию. Окупаемость — от 2 лет на объектах с высоким потреблением
+              (торговля, АЗС, производство). Частный сектор с нет-митерингом сокращает
+              платёжки и повышает капитализацию недвижимости.
+            </p>
+          </Reveal>
 
-          <div className="about-benefits">
+          <RevealGroup className="about-benefits" stagger={0.1}>
             {BENEFITS.map((b, i) => (
-              <div key={b.title} className="card about-benefit-item">
-                <span className="about-benefit-item__num">{i + 1}</span>
-                <div>
-                  <h4>{b.title}</h4>
-                  <p>{b.text}</p>
+              <RevealItem key={b.title}>
+                <div className="card about-benefit-item">
+                  <span className="about-benefit-item__num">{i + 1}</span>
+                  <div>
+                    <h4>{b.title}</h4>
+                    <p>{b.text}</p>
+                  </div>
                 </div>
-              </div>
+              </RevealItem>
             ))}
-          </div>
+          </RevealGroup>
         </div>
       </section>
 
-      {/* Призыв к действию */}
       <section className="about-cta">
         <div className="container">
-          <h2>Готовы рассчитать окупаемость для вашего объекта?</h2>
-          <p>Инженеры Solar Galaxy подготовят предварительный расчёт за 1 рабочий день. г. Шымкент, ул. Байтурсынова 85 (БЦ Орда), каб. 210 · +7 700 330 1999</p>
-          <Link to="/contact" className="btn btn--primary">Получить расчёт</Link>
+          <Reveal>
+            <h2>Готовы рассчитать окупаемость для вашего объекта?</h2>
+            <p>
+              Инженеры Solar Galaxy подготовят предварительный расчёт за 1 рабочий день.
+              г. Шымкент, ул. Байтурсынова 85 (БЦ Орда), каб. 210 · +7 700 330 1999
+            </p>
+            <Link to="/contact" className="btn btn--primary">Получить расчёт</Link>
+          </Reveal>
         </div>
       </section>
     </>

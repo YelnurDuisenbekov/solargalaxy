@@ -1,6 +1,6 @@
+import { Reveal, RevealGroup, RevealItem } from '../../components/motion/ScrollReveal';
 import './Services.css';
 
-/* Каталог оборудования и услуг */
 const EQUIPMENT = [
   {
     tag: 'Оборудование',
@@ -67,53 +67,63 @@ export default function Services() {
     <>
       <section className="services-hero">
         <div className="container">
-          <h1>Услуги и оборудование</h1>
-          <p>
-            Солнечные электростанции под ключ в Казахстане — от подбора панелей
-            до пусконаладки. Экономия на электроэнергии до 70%, окупаемость от 2 лет.
-          </p>
+          <Reveal>
+            <h1>Услуги и оборудование</h1>
+            <p>
+              Солнечные электростанции под ключ в Казахстане — от подбора панелей
+              до пусконаладки. Экономия на электроэнергии до 70%, окупаемость от 2 лет.
+            </p>
+          </Reveal>
         </div>
       </section>
 
       <section className="section">
         <div className="container">
-          <span className="section__label">Направления</span>
-          <h2 className="section__title">Создание устойчивого будущего</h2>
-          <p className="section__desc">
-            Экологически чистые энергетические решения для частных домов, коммерческих объектов,
-            производственных предприятий, сельхозкомплексов и государственных учреждений.
-          </p>
+          <Reveal>
+            <span className="section__label">Направления</span>
+            <h2 className="section__title">Создание устойчивого будущего</h2>
+            <p className="section__desc">
+              Экологически чистые энергетические решения для частных домов, коммерческих объектов,
+              производственных предприятий, сельхозкомплексов и государственных учреждений.
+            </p>
+          </Reveal>
 
-          <div className="services-types">
+          <RevealGroup className="services-types" stagger={0.1}>
             {SOLUTIONS.map((s) => (
-              <div key={s.title} className="card services-type">
-                <div className="services-type__icon">{s.icon}</div>
-                <h3>{s.title}</h3>
-                <p>{s.desc}</p>
-              </div>
+              <RevealItem key={s.title}>
+                <div className="card services-type">
+                  <div className="services-type__icon">{s.icon}</div>
+                  <h3>{s.title}</h3>
+                  <p>{s.desc}</p>
+                </div>
+              </RevealItem>
             ))}
-          </div>
+          </RevealGroup>
         </div>
       </section>
 
       <section className="section section--alt">
         <div className="container">
-          <span className="section__label">Каталог</span>
-          <h2 className="section__title">Магазин солнечного оборудования</h2>
-          <p className="section__desc">
-            Поставляем проверенное оборудование и выполняем полный цикл работ —
-            проектирование, монтаж, ввод в эксплуатацию.
-          </p>
+          <Reveal>
+            <span className="section__label">Каталог</span>
+            <h2 className="section__title">Магазин солнечного оборудования</h2>
+            <p className="section__desc">
+              Поставляем проверенное оборудование и выполняем полный цикл работ —
+              проектирование, монтаж, ввод в эксплуатацию.
+            </p>
+          </Reveal>
 
-          <div className="services-grid">
+          <RevealGroup className="services-grid" stagger={0.07}>
             {EQUIPMENT.map((item) => (
-              <div key={item.title} className="card services-card">
-                <span className="services-card__tag">{item.tag}</span>
-                <h3>{item.title}</h3>
-                <p>{item.desc}</p>
-              </div>
+              <RevealItem key={item.title}>
+                <div className="card services-card">
+                  <span className="services-card__tag">{item.tag}</span>
+                  <h3>{item.title}</h3>
+                  <p>{item.desc}</p>
+                </div>
+              </RevealItem>
             ))}
-          </div>
+          </RevealGroup>
         </div>
       </section>
     </>

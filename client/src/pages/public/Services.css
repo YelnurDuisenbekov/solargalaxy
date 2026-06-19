@@ -77,4 +77,15 @@
 
 @media (max-width: 768px) {
   .services-types { grid-template-columns: 1fr; }
+  .services-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+  .services-hero { padding: 44px 0 52px; }
+  .services-type { padding: 24px 16px; }
+}
+
+@media (max-width: 360px) {
+  .services-hero h1 { font-size: 1.5rem; }
+  .services-card h3 { font-size: 0.9375rem; }
 }

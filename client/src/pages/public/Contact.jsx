@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { publicApi } from '../../api';
+import { Reveal, RevealGroup, RevealItem } from '../../components/motion/ScrollReveal';
 import './Contact.css';
 
-/* Контакты */
 const CONTACTS = {
   phone: '+7 700 330 1999',
   phoneHref: 'tel:+77003301999',
@@ -12,6 +12,13 @@ const CONTACTS = {
   mapQuery: 'Шымкент, ул. Байтурсынова 85',
   hours: 'Пн–Пт: 9:00–18:00',
 };
+
+const INFO_CARDS = [
+  { label: 'Телефон', value: CONTACTS.phone, href: CONTACTS.phoneHref },
+  { label: 'Адрес', lines: [CONTACTS.city, CONTACTS.address] },
+  { label: 'Режим работы', value: CONTACTS.hours },
+  { label: 'География', value: 'Весь Казахстан', muted: true },
+];
 
 export default function Contact() {
   const [form, setForm] = useState({ name: '', phone: '', email: '', notes: '' });
@@ -32,70 +39,77 @@ export default function Contact() {
     <>
       <section className="contact-hero">
         <div className="container">
-          <h1>Контакты</h1>
-          <p>Готовы помочь с потребностями в солнечной энергии. Свяжитесь с нами для индивидуального решения.</p>
+          <Reveal>
+            <h1>Контакты</h1>
+            <p>Готовы помочь с потребностями в солнечной энергии. Свяжитесь с нами для индивидуального решения.</p>
+          </Reveal>
         </div>
       </section>
 
       <section className="section">
         <div className="container contact-grid">
-          <div className="contact-info">
-            <div className="card contact-card">
-              <span className="contact-card__label">Телефон</span>
-              <a href={CONTACTS.phoneHref} className="contact-card__value">{CONTACTS.phone}</a>
-            </div>
-            <div className="card contact-card">
-              <span className="contact-card__label">Адрес</span>
-              <p className="contact-card__value">{CONTACTS.city}</p>
-              <p className="contact-card__value contact-card__value--sub">{CONTACTS.address}</p>
-            </div>
-            <div className="card contact-card">
-              <span className="contact-card__label">Режим работы</span>
-              <p className="contact-card__value">{CONTACTS.hours}</p>
-            </div>
-            <div className="card contact-card">
-              <span className="contact-card__label">География</span>
-              <p className="contact-card__value contact-card__value--muted">
-                Весь Казахстан
-              </p>
-            </div>
-          </div>
+          <RevealGroup className="contact-info" stagger={0.08}>
+            {INFO_CARDS.map((c) => (
+              <RevealItem key={c.label}>
+                <div className="card contact-card">
+                  <span className="contact-card__label">{c.label}</span>
+                  {c.href ? (
+                    <a href={c.href} className="contact-card__value">{c.value}</a>
+                  ) : c.lines ? (
+                    <>
+                      <p className="contact-card__value">{c.lines[0]}</p>
+                      <p className="contact-card__value contact-card__value--sub">{c.lines[1]}</p>
+                    </>
+                  ) : (
+                    <p className={`contact-card__value${c.muted ? ' contact-card__value--muted' : ''}`}>
+                      {c.value}
+                    </p>
+                  )}
+                </div>
+              </RevealItem>
+            ))}
+          </RevealGroup>
 
-          <form className="card contact-form" onSubmit={submit}>
-            <h2>Оставить заявку</h2>
-            <input className="input" placeholder="Имя" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            <input className="input" placeholder="Телефон" required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-            <input className="input" placeholder="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-            <textarea className="input" placeholder="Опишите объект или задайте вопрос" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-            <button type="submit" className="btn btn--primary">Отправить заявку</button>
-            {msg && <p className="contact-form__msg">{msg}</p>}
-          </form>
+          <Reveal delay={0.1}>
+            <form className="card contact-form" onSubmit={submit}>
+              <h2>Оставить заявку</h2>
+              <input className="input" placeholder="Имя" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              <input className="input" placeholder="Телефон" required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              <input className="input" placeholder="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              <textarea className="input" placeholder="Опишите объект или задайте вопрос" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+              <button type="submit" className="btn btn--primary contact-form__submit">Отправить заявку</button>
+              {msg && <p className="contact-form__msg">{msg}</p>}
+            </form>
+          </Reveal>
         </div>
       </section>
 
-      {/* Карта */}
       <section className="section section--alt contact-map-section">
         <div className="container">
-          <span className="section__label">Как нас найти</span>
-          <h2 className="section__title">Офис в Шымкенте</h2>
-          <p className="section__desc">{CONTACTS.fullAddress}</p>
-          <div className="contact-map">
-            <iframe
-              title="Карта — Solar Galaxy, Шымкент"
-              src={`https://yandex.kz/map-widget/v1/?text=${encodeURIComponent(CONTACTS.mapQuery)}&z=17`}
-              allowFullScreen
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
-          </div>
-          <a
-            href={`https://yandex.kz/maps/?text=${encodeURIComponent(CONTACTS.mapQuery)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="contact-map__link"
-          >
-            Открыть в Яндекс Картах
-          </a>
+          <Reveal>
+            <span className="section__label">Как нас найти</span>
+            <h2 className="section__title">Офис в Шымкенте</h2>
+            <p className="section__desc">{CONTACTS.fullAddress}</p>
+          </Reveal>
+          <Reveal delay={0.1}>
+            <div className="contact-map">
+              <iframe
+                title="Карта — Solar Galaxy, Шымкент"
+                src={`https://yandex.kz/map-widget/v1/?text=${encodeURIComponent(CONTACTS.mapQuery)}&z=17`}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            </div>
+            <a
+              href={`https://yandex.kz/maps/?text=${encodeURIComponent(CONTACTS.mapQuery)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="contact-map__link"
+            >
+              Открыть в Яндекс Картах
+            </a>
+          </Reveal>
         </div>
       </section>
     </>

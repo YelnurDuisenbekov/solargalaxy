@@ -111,3 +111,14 @@ a.contact-card__value:hover { color: var(--green); }
   .contact-grid { grid-template-columns: 1fr; }
   .contact-map iframe { height: 300px; }
 }
+
+@media (max-width: 480px) {
+  .contact-hero { padding: 44px 0 52px; }
+  .contact-form__submit { width: 100%; }
+  .contact-card__value { font-size: 1rem; word-break: break-word; }
+}
+
+@media (max-width: 360px) {
+  .contact-hero h1 { font-size: 1.5rem; }
+  .contact-map iframe { height: 260px; }
+}

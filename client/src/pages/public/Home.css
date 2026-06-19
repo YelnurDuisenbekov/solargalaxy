@@ -179,6 +179,20 @@
   overflow: hidden;
 }
 
+.calculator__form-wrap,
+.calculator__chart-wrap {
+  min-width: 0;
+}
+
+.calculator__submit {
+  align-self: flex-start;
+}
+
+.home-cta__msg {
+  font-size: 0.875rem;
+  color: var(--green);
+}
+
 /* График тарифов */
 .tariff-chart__header {
   display: flex;
@@ -322,6 +336,17 @@
   .tariff-chart__header { flex-direction: column; }
 }
 
+@media (max-width: 480px) {
+  .tariff-chart__legend { gap: 10px; }
+  .tariff-chart__badge { font-size: 0.6875rem; padding: 3px 8px; }
+  .calculator__chart { padding: 16px 12px; }
+}
+
+@media (max-width: 360px) {
+  .tariff-chart__header h3 { font-size: 0.9375rem; }
+  .tariff-chart__note { font-size: 0.75rem; }
+}
+
 
 /* Этапы работы */
 .steps {
@@ -397,14 +422,6 @@
   gap: 12px;
 }
 
-@media (max-width: 900px) {
-  .audience { grid-template-columns: 1fr; }
-  .advantages { grid-template-columns: repeat(2, 1fr); }
-  .calculator { grid-template-columns: 1fr; }
-  .steps { grid-template-columns: repeat(2, 1fr); }
-  .home-cta__inner { grid-template-columns: 1fr; gap: 32px; }
-}
-
 .hero__stats {
   display: flex;
   gap: 32px;
@@ -435,6 +452,11 @@
 .solution-card {
   text-align: center;
   padding: 28px 20px;
+  height: 100%;
+}
+
+.solution-card__icon {
+  font-size: 1.75rem;
 }
 
 .solution-card h3 {
@@ -449,14 +471,47 @@
   line-height: 1.55;
 }
 
+@media (max-width: 900px) {
+  .audience { grid-template-columns: 1fr; }
+  .advantages { grid-template-columns: repeat(2, 1fr); }
+  .calculator { grid-template-columns: 1fr; }
+  .steps { grid-template-columns: repeat(2, 1fr); }
+  .home-cta__inner { grid-template-columns: 1fr; gap: 32px; }
+}
+
 @media (max-width: 768px) {
   .solutions-row { grid-template-columns: 1fr; }
   .hero__stats { gap: 20px; }
+  .hero h1 { font-size: 1.625rem; }
 }
 
 @media (max-width: 560px) {
   .advantages { grid-template-columns: 1fr; }
   .steps { grid-template-columns: 1fr; }
   .hero { padding: 72px 0 64px; }
+  .audience-card { padding: 24px 20px; }
+}
+
+@media (max-width: 480px) {
+  .hero { padding: 64px 0 56px; }
+  .hero__actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .hero__actions .btn { width: 100%; }
+  .hero__stat { min-width: calc(50% - 10px); }
+  .home-cta { padding: 48px 0; }
+  .calculator__submit { width: 100%; }
+}
+
+@media (max-width: 360px) {
+  .hero { padding: 56px 0 48px; }
+  .hero__stats { gap: 16px; }
+  .hero__stat { min-width: 100%; }
+  .hero__stat strong { font-size: 1.25rem; }
+  .advantage { padding: 22px 16px; }
+  .step { padding: 20px 14px; }
+  .home-cta h2 { font-size: 1.2rem; }
 }
 
