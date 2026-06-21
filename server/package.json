@@ -8,6 +8,11 @@
     "start": "node src/index.js",
     "db:push": "prisma db push",
     "db:seed": "node prisma/seed.js",
+    "db:clear-crm": "node prisma/clear-crm.js",
+    "reminder:run": "node scripts/run-reminder.js",
+    "whatsapp:setup": "node scripts/whatsapp-setup.mjs",
+    "green:setup": "node scripts/green-api-setup.mjs",
+    "whatsapp:followup": "node scripts/run-whatsapp-followup.js",
     "db:studio": "prisma studio"
   },
   "dependencies": {

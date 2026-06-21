@@ -9,16 +9,22 @@ import Contact from './pages/public/Contact';
 import Login from './pages/public/Login';
 import Dashboard from './pages/app/Dashboard';
 import CrmPage from './pages/app/CrmPage';
+import ProposalPage from './pages/app/ProposalPage';
+import ProjectsPage from './pages/app/ProjectsPage';
+import FinancePage from './pages/app/FinancePage';
 import WarehousePage from './pages/app/WarehousePage';
 import UsersPage from './pages/app/UsersPage';
+import ProfilePage from './pages/app/ProfilePage';
 import ClientPortal from './pages/app/ClientPortal';
+import SupplyPage from './pages/app/SupplyPage';
+import WhatsAppPage from './pages/app/WhatsAppPage';
+import ContractorPage from './pages/app/ContractorPage';
+import AuctionsRoute from './pages/app/AuctionsRoute';
 
-function ProtectedRoute({ children, staffOnly, adminOnly }) {
+function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="container" style={{ padding: 40 }}>Загрузка…</div>;
   if (!user) return <Navigate to="/login" replace />;
-  if (adminOnly && user.role !== 'ADMIN') return <Navigate to="/app" replace />;
-  if (staffOnly && !['ADMIN', 'EMPLOYEE'].includes(user.role)) return <Navigate to="/app" replace />;
   return children;
 }
 
@@ -35,9 +41,18 @@ export default function App() {
 
       <Route path="/app" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route index element={<Dashboard />} />
-        <Route path="crm" element={<ProtectedRoute staffOnly><CrmPage /></ProtectedRoute>} />
-        <Route path="warehouse" element={<ProtectedRoute staffOnly><WarehousePage /></ProtectedRoute>} />
-        <Route path="users" element={<ProtectedRoute adminOnly><UsersPage /></ProtectedRoute>} />
+        <Route path="crm" element={<CrmPage />} />
+        <Route path="proposals" element={<ProposalPage />} />
+        <Route path="projects" element={<ProjectsPage />} />
+        <Route path="finance" element={<FinancePage />} />
+        <Route path="warehouse" element={<WarehousePage />} />
+        <Route path="supply" element={<SupplyPage />} />
+        <Route path="auctions" element={<AuctionsRoute mode="open" />} />
+        <Route path="auction-results" element={<AuctionsRoute mode="results" />} />
+        <Route path="my-bids" element={<ContractorPage tab="bids" />} />
+        <Route path="users" element={<UsersPage />} />
+        <Route path="whatsapp" element={<WhatsAppPage />} />
+        <Route path="profile" element={<ProfilePage />} />
         <Route path="portal" element={<ClientPortal />} />
       </Route>
 

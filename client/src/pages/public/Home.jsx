@@ -1,9 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { publicApi } from '../../api';
-import TariffChart, { TARIFF_HISTORY } from '../../components/TariffChart';
+import PublicLeadForm, { RegisterPromptModal } from '../../components/lead/PublicLeadForm';
 import { Reveal, RevealGroup, RevealItem } from '../../components/motion/ScrollReveal';
-import { formatNum, formatTariff } from '../../utils/format';
 import './Home.css';
 
 const SOLUTIONS = [
@@ -21,30 +19,7 @@ const STEPS = [
 ];
 
 export default function Home() {
-  const [monthlyBill, setMonthlyBill] = useState(150000);
-  const [roofArea, setRoofArea] = useState(200);
-  const [currentTariff, setCurrentTariff] = useState(42);
-  const [segment, setSegment] = useState('business');
-  const [ctaForm, setCtaForm] = useState({ name: '', phone: '' });
-  const [ctaMsg, setCtaMsg] = useState('');
-
-  const marketTariff = TARIFF_HISTORY[TARIFF_HISTORY.length - 1];
-  const marketRate = segment === 'household' ? marketTariff.household : marketTariff.business;
-  const isBelowMarket = currentTariff > 0 && currentTariff < marketRate;
-  const belowMarketPct = isBelowMarket
-    ? Math.round(((marketRate - currentTariff) / marketRate) * 100)
-    : 0;
-
-  const submitCta = async (e) => {
-    e.preventDefault();
-    try {
-      await publicApi.createLead({ ...ctaForm, notes: 'Заявка с главной страницы' });
-      setCtaMsg('Заявка отправлена! Менеджер свяжется с вами.');
-      setCtaForm({ name: '', phone: '' });
-    } catch {
-      setCtaMsg('Не удалось отправить. Попробуйте позже или позвоните нам.');
-    }
-  };
+  const [registerPrompt, setRegisterPrompt] = useState(null);
 
   return (
     <>
@@ -75,8 +50,7 @@ export default function Home() {
               с КПД до 24%. Инжиниринг, автоматизация и нет-митеринг по методологии EPS.
             </p>
             <div className="hero__actions">
-              <a href="#calculator" className="btn btn--primary">Рассчитать окупаемость</a>
-              <Link to="/about" className="btn btn--outline">О компании</Link>
+              <Link to="/about" className="btn btn--outline btn--outline-light">О компании</Link>
             </div>
           </Reveal>
         </div>
@@ -187,97 +161,6 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="section" id="calculator">
-        <div className="container">
-          <Reveal>
-            <span className="section__label">Калькулятор</span>
-            <h2 className="section__title">Рост тарифов и ваша экономия</h2>
-            <p className="section__desc">
-              Укажите текущий тариф и посмотрите, насколько выросли цены на электроэнергию
-              для частных и юридических потребителей в Казахстане с 2019 года.
-            </p>
-          </Reveal>
-
-          <div className="calculator">
-            <Reveal className="calculator__form-wrap">
-              <div className="card calculator__form">
-                <div className="calculator__field">
-                  <label htmlFor="tariff">Текущий тариф, ₸/кВт·ч</label>
-                  <input
-                    id="tariff"
-                    className="input"
-                    type="number"
-                    min={5}
-                    step={0.5}
-                    value={currentTariff}
-                    onChange={(e) => setCurrentTariff(Number(e.target.value))}
-                  />
-                  {isBelowMarket && (
-                    <p className="calculator__tariff-hint calculator__tariff-hint--below">
-                      Ваш тариф на <strong>{belowMarketPct}%</strong> ниже рыночного
-                      ({formatTariff(marketRate)} ₸/кВт·ч в {marketTariff.year} г.)
-                    </p>
-                  )}
-                  {currentTariff > marketRate && (
-                    <p className="calculator__tariff-hint calculator__tariff-hint--above">
-                      Ваш тариф на <strong>{Math.round(((currentTariff - marketRate) / marketRate) * 100)}%</strong> выше рыночного
-                      ({formatTariff(marketRate)} ₸/кВт·ч в {marketTariff.year} г.)
-                    </p>
-                  )}
-                </div>
-                <div className="calculator__field">
-                  <label htmlFor="segment">Категория потребителя</label>
-                  <select
-                    id="segment"
-                    className="input"
-                    value={segment}
-                    onChange={(e) => {
-                      setSegment(e.target.value);
-                      setCurrentTariff(e.target.value === 'household' ? 25.5 : 44);
-                    }}
-                  >
-                    <option value="household">Физическое лицо (частник)</option>
-                    <option value="business">Юридическое лицо</option>
-                  </select>
-                </div>
-                <div className="calculator__field">
-                  <label htmlFor="bill">Счёт за электроэнергию в месяц, ₸</label>
-                  <input
-                    id="bill"
-                    className="input"
-                    type="text"
-                    inputMode="numeric"
-                    placeholder={formatNum(150000)}
-                    value={monthlyBill ? formatNum(monthlyBill) : ''}
-                    onChange={(e) => setMonthlyBill(Number(e.target.value.replace(/\s/g, '')) || 0)}
-                  />
-                </div>
-                <div className="calculator__field">
-                  <label htmlFor="area">Доступная площадь под панели, м²</label>
-                  <input
-                    id="area"
-                    className="input"
-                    type="text"
-                    inputMode="numeric"
-                    value={roofArea ? formatNum(roofArea) : ''}
-                    onChange={(e) => setRoofArea(Number(e.target.value.replace(/\s/g, '')) || 0)}
-                  />
-                </div>
-                <Link to="/contact" className="btn btn--primary calculator__submit">
-                  Заказать точный расчёт EPS
-                </Link>
-              </div>
-            </Reveal>
-
-            <Reveal className="calculator__chart-wrap" delay={0.1}>
-              <div className="card calculator__chart">
-                <TariffChart currentTariff={currentTariff} segment={segment} />
-              </div>
-            </Reveal>
-          </div>
-        </div>
-      </section>
-
       <section className="section section--alt">
         <div className="container">
           <Reveal>
@@ -301,37 +184,29 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="home-cta">
-        <div className="container home-cta__inner">
+      <section className="section section--quote" id="quote">
+        <div className="container">
           <Reveal>
-            <h2>Начните с бесплатной консультации</h2>
-            <p>
-              Оставьте контакты — инженер Solar Galaxy свяжется с вами в течение
-              одного рабочего дня и подготовит предварительный расчёт по EPS.
+            <span className="section__label">Калькулятор</span>
+            <h2 className="section__title">Рост тарифов и расчёт СЭС</h2>
+            <p className="section__desc">
+              Укажите тариф и сумму счёта — мы рассчитаем потребление и рекомендуемую мощность станции
+              с учётом КПД 24%. Заполните контакты и отправьте заявку инженеру.
             </p>
           </Reveal>
-          <Reveal delay={0.1}>
-            <form className="home-cta__form" onSubmit={submitCta}>
-              <input
-                className="input"
-                placeholder="Ваше имя"
-                required
-                value={ctaForm.name}
-                onChange={(e) => setCtaForm({ ...ctaForm, name: e.target.value })}
-              />
-              <input
-                className="input"
-                placeholder="Телефон"
-                required
-                value={ctaForm.phone}
-                onChange={(e) => setCtaForm({ ...ctaForm, phone: e.target.value })}
-              />
-              <button type="submit" className="btn btn--primary">Получить консультацию</button>
-              {ctaMsg && <p className="home-cta__msg">{ctaMsg}</p>}
-            </form>
+          <Reveal delay={0.08}>
+            <PublicLeadForm
+              withCalculator
+              submitLabel="Получить расчёт"
+              onSubmitted={(lead) => setRegisterPrompt(lead)}
+            />
           </Reveal>
         </div>
       </section>
+
+      {registerPrompt && (
+        <RegisterPromptModal lead={registerPrompt} onClose={() => setRegisterPrompt(null)} />
+      )}
     </>
   );
 }

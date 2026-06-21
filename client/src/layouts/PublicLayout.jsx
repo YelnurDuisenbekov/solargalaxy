@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import FloatingQuoteButton from '../components/FloatingQuoteButton';
 import './PublicLayout.css';
 
 const NAV_LINKS = [
@@ -60,6 +61,7 @@ export default function PublicLayout() {
         </div>
       </header>
       <main><Outlet /></main>
+      <FloatingQuoteButton />
       <footer className="public-footer">
         <div className="container">© {new Date().getFullYear()} Solar Galaxy — солнечная энергетика Казахстана</div>
       </footer>

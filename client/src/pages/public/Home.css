@@ -43,6 +43,19 @@
   gap: 12px;
   justify-content: center;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+.section--quote {
+  background: linear-gradient(180deg, var(--white) 0%, var(--bg-alt) 100%);
+  scroll-margin-top: 80px;
+}
+
+.quote-form-card {
+  padding: 28px;
+  border-top: 4px solid var(--green);
+  box-shadow: var(--shadow-lg);
+  margin-top: 24px;
 }
 
 /* Сегменты B2B / B2C */

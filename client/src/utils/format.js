@@ -30,6 +30,31 @@ export function formatTariff(value) {
   return Number.isInteger(n) ? formatNum(n) : formatNum(n, { decimals: 1 });
 }
 
+/** Длительность между двумя датами (для «время до контакта») */
+export function formatDuration(from, to = new Date()) {
+  if (!from) return '—';
+  const start = from instanceof Date ? from : new Date(from);
+  const end = to instanceof Date ? to : new Date(to);
+  const ms = end - start;
+  if (!Number.isFinite(ms) || ms < 0) return '—';
+  const mins = Math.floor(ms / 60000);
+  if (mins < 1) return '< 1 мин';
+  if (mins < 60) return `${mins} мин`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} ч`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days} д`;
+  return `${Math.floor(days / 30)} мес`;
+}
+
+export function formatDateTime(value) {
+  if (!value) return '—';
+  return new Date(value).toLocaleString('ru-RU', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+}
+
 /** Суммы в тенге */
 export function formatMoney(value) {
   return `${formatNum(value)} ₸`;

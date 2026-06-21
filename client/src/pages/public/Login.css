@@ -35,6 +35,12 @@
   color: var(--text-muted);
 }
 
+.login-page__success {
+  color: var(--green-dark, #047857);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
 @media (max-width: 480px) {
   .login-page {
     padding: 32px 0 48px;

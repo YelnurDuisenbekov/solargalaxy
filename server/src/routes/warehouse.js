@@ -1,12 +1,15 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import prisma from '../lib/prisma.js';
-import { authRequired, requireRoles } from '../lib/auth.js';
+import { authRequired, attachUser, requirePermission } from '../lib/auth.js';
+import { PERMISSIONS } from '../lib/permissions.js';
 
 const router = Router();
-router.use(authRequired, requireRoles('ADMIN', 'EMPLOYEE'));
+router.use(authRequired, attachUser);
 
-router.get('/products', async (_req, res) => {
+const viewPerms = [PERMISSIONS.WAREHOUSE_VIEW, PERMISSIONS.SUPPLY_VIEW, PERMISSIONS.ERP_VIEW_ALL, PERMISSIONS.ADMIN_FULL];
+
+router.get('/products', requirePermission(...viewPerms), async (_req, res) => {
   const products = await prisma.product.findMany({
     include: { stock: true },
     orderBy: { name: 'asc' },
@@ -14,7 +17,7 @@ router.get('/products', async (_req, res) => {
   res.json(products);
 });
 
-router.post('/products', requireRoles('ADMIN'), async (req, res) => {
+router.post('/products', requirePermission(PERMISSIONS.WAREHOUSE_EDIT, PERMISSIONS.ADMIN_FULL), async (req, res) => {
   const schema = z.object({
     sku: z.string().min(2),
     name: z.string().min(2),
@@ -23,6 +26,10 @@ router.post('/products', requireRoles('ADMIN'), async (req, res) => {
     price: z.number().optional(),
     minStock: z.number().optional(),
     initialQty: z.number().optional(),
+    kitCategory: z.enum(['PANEL', 'INVERTER', 'BATTERY', 'MOUNTING', 'COMMISSIONING', 'CABLE', 'OTHER']).optional().nullable(),
+    powerW: z.number().positive().optional().nullable(),
+    capacityKw: z.number().positive().optional().nullable(),
+    capacityKwh: z.number().positive().optional().nullable(),
   });
   try {
     const data = schema.parse(req.body);
@@ -34,6 +41,10 @@ router.post('/products', requireRoles('ADMIN'), async (req, res) => {
         unit: data.unit ?? 'шт',
         price: data.price ?? 0,
         minStock: data.minStock ?? 0,
+        kitCategory: data.kitCategory ?? null,
+        powerW: data.powerW ?? null,
+        capacityKw: data.capacityKw ?? null,
+        capacityKwh: data.capacityKwh ?? null,
         stock: { create: { quantity: data.initialQty ?? 0 } },
       },
       include: { stock: true },
@@ -46,7 +57,7 @@ router.post('/products', requireRoles('ADMIN'), async (req, res) => {
   }
 });
 
-router.get('/movements', async (_req, res) => {
+router.get('/movements', requirePermission(...viewPerms), async (_req, res) => {
   const movements = await prisma.stockMovement.findMany({
     include: { product: true, author: { select: { fullName: true } } },
     orderBy: { createdAt: 'desc' },
@@ -55,7 +66,7 @@ router.get('/movements', async (_req, res) => {
   res.json(movements);
 });
 
-router.post('/movements', async (req, res) => {
+router.post('/movements', requirePermission(PERMISSIONS.WAREHOUSE_EDIT, PERMISSIONS.ADMIN_FULL), async (req, res) => {
   const schema = z.object({
     productId: z.string(),
     type: z.enum(['IN', 'OUT', 'ADJUST']),
@@ -90,7 +101,7 @@ router.post('/movements', async (req, res) => {
   }
 });
 
-router.get('/summary', async (_req, res) => {
+router.get('/summary', requirePermission(...viewPerms), async (_req, res) => {
   const items = await prisma.stockItem.findMany({ include: { product: true } });
   const lowStock = items.filter((i) => i.quantity <= i.product.minStock);
   const totalValue = items.reduce((s, i) => s + i.quantity * i.product.price, 0);

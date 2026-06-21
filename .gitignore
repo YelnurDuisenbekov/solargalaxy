@@ -10,3 +10,4 @@ coverage/
 .vscode/
 .idea/
 .vercel/
+server/uploads/

@@ -9,8 +9,23 @@ datasource db {
 
 enum UserRole {
   ADMIN
-  EMPLOYEE
+  DIRECTOR
+  MANAGER
+  WAREHOUSE
+  SUPPLY
+  ACCOUNTANT
+  CONTRACTOR
   CLIENT
+  EMPLOYEE
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  SURVEY
+  CONVERTED
+  LOST
 }
 
 enum DealStatus {
@@ -18,6 +33,77 @@ enum DealStatus {
   IN_PROGRESS
   WON
   LOST
+}
+
+enum ProjectPhase {
+  SURVEY
+  DESIGN
+  BIDDING
+  PROCUREMENT
+  INSTALLATION
+  COMMISSIONING
+  COMPLETED
+  CANCELLED
+}
+
+enum SystemType {
+  ON_GRID
+  OFF_GRID
+  HYBRID
+}
+
+enum ObjectType {
+  HOUSE
+  OFFICE
+  FARM
+  INDUSTRIAL
+  OTHER
+}
+
+enum KitCategory {
+  PANEL
+  INVERTER
+  BATTERY
+  MOUNTING
+  COMMISSIONING
+  CABLE
+  OTHER
+}
+
+enum CostAllocation {
+  PER_PANEL
+  PER_KW
+  PER_PROJECT
+  PERCENT_EQUIPMENT
+}
+
+enum NotificationType {
+  PURCHASE_REQUIRED
+  LOW_STOCK
+  PROJECT_UPDATE
+  QUALIFIED_LEAD_REMINDER
+  AUTO_WHATSAPP_FOLLOWUP
+}
+
+enum BidStatus {
+  PENDING
+  WON
+  LOST
+}
+
+enum ActivityType {
+  CALL
+  MEETING
+  EMAIL
+  TASK
+  NOTE
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  CANCELLED
 }
 
 enum StockMovementType {
@@ -28,6 +114,7 @@ enum StockMovementType {
 
 model User {
   id           String   @id @default(cuid())
+  login        String   @unique
   email        String   @unique
   passwordHash String
   fullName     String
@@ -38,36 +125,246 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  deals        Deal[]
-  stockMoves   StockMovement[] @relation("MovementAuthor")
+  permissions      UserPermission[]
+  deals            Deal[]          @relation("DealClient")
+  assignedLeads    Lead[]          @relation("LeadAssignee")
+  assignedDeals    Deal[]          @relation("DealAssignee")
+  assignedProjects Project[]       @relation("ProjectAssignee")
+  clientProjects   Project[]       @relation("ProjectClient")
+  clientInvoices   Invoice[]       @relation("InvoiceClient")
+  stockMoves       StockMovement[] @relation("MovementAuthor")
+  activities       Activity[]      @relation("ActivityAuthor")
+  notifications    Notification[]  @relation("NotificationUser")
+  contractorBids   ContractorBid[]
+  uploadedAttachments ProjectAttachment[] @relation("ProjectAttachmentUploader")
+}
+
+model UserPermission {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key    String
+
+  @@unique([userId, key])
 }
 
 model Lead {
-  id        String   @id @default(cuid())
-  name      String
-  phone     String
-  email     String?
-  source    String?
-  notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String     @id @default(cuid())
+  fullName    String
+  phone       String
+  email       String?
+  city        String?
+  objectType  ObjectType @default(OTHER)
+  systemType  SystemType @default(ON_GRID)
+  capacityKw  Float?
+  source      String     @default("Сайт")
+  notes       String?
+  address     String?
+  surveyAt    DateTime?
+  status            LeadStatus @default(NEW)
+  contactedAt       DateTime?
+  qualifiedAt         DateTime?
+  autoWhatsAppSentAt  DateTime?
+  assigneeId          String?
+  assignee    User?      @relation("LeadAssignee", fields: [assigneeId], references: [id])
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
-  deal      Deal?
+  deal        Deal?
+  project     Project?
+  activities  Activity[]
+  proposalAmount     Float   @default(0)
+  proposalCustomized Boolean @default(false)
+  proposalItems      LeadProposalItem[]
+}
+
+model LeadProposalItem {
+  id          String      @id @default(cuid())
+  leadId      String
+  lead        Lead        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product?    @relation(fields: [productId], references: [id])
+  category    KitCategory
+  name        String
+  quantity    Float       @default(1)
+  unitPrice   Float       @default(0)
+  discountPct Float       @default(0)
+  sortOrder   Int         @default(0)
+
+  @@index([leadId])
 }
 
 model Deal {
-  id          String     @id @default(cuid())
+  id           String     @id @default(cuid())
+  title        String
+  fullName     String?
+  phone        String?
+  city         String?
+  objectType   ObjectType @default(OTHER)
+  systemType   SystemType @default(ON_GRID)
+  capacityKw   Float?
+  amount       Float      @default(0)
+  discountPct  Float      @default(0)
+  status       DealStatus @default(NEW)
+  notes        String?
+  address      String?
+  leadId       String?    @unique
+  lead         Lead?      @relation(fields: [leadId], references: [id])
+  clientId     String?
+  client       User?      @relation("DealClient", fields: [clientId], references: [id])
+  assigneeId   String?
+  assignee     User?      @relation("DealAssignee", fields: [assigneeId], references: [id])
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  kitItems     DealKitItem[]
+  project      Project?
+  activities   Activity[]
+}
+
+model DealKitItem {
+  id              String      @id @default(cuid())
+  dealId          String
+  deal            Deal        @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  productId       String?
+  product         Product?    @relation(fields: [productId], references: [id])
+  category        KitCategory
+  name            String
+  quantity        Int         @default(1)
+  unitPrice       Float       @default(0)
+  discountPct     Float       @default(0)
+  stockAvailable  Int         @default(0)
+
+  @@index([dealId])
+}
+
+model Project {
+  id              String       @id @default(cuid())
+  projectNumber   String?      @unique
+  title           String
+  phase           ProjectPhase @default(DESIGN)
+  capacityKw      Float?
+  city            String?
+  address         String?
+  notes           String?
+  clientPhone     String?
+  auctionBrief    String?
+  auctionOpen     Boolean      @default(false)
+  auctionLaunched Boolean      @default(false)
+  auctionDeadline DateTime?
+  startDate       DateTime?
+  endDate         DateTime?
+  dealId          String?      @unique
+  deal            Deal?        @relation(fields: [dealId], references: [id])
+  leadId          String?      @unique
+  lead            Lead?        @relation(fields: [leadId], references: [id])
+  clientId        String?
+  client          User?        @relation("ProjectClient", fields: [clientId], references: [id])
+  assigneeId      String?
+  assignee        User?        @relation("ProjectAssignee", fields: [assigneeId], references: [id])
+  winningBidId    String?      @unique
+  winningBid      ContractorBid? @relation("WinningBid", fields: [winningBidId], references: [id])
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  materials       ProjectMaterial[]
+  invoices        Invoice[]
+  activities      Activity[]
+  stockMoves      StockMovement[]
+  bids            ContractorBid[] @relation("ProjectBids")
+  attachments     ProjectAttachment[]
+
+  @@index([clientPhone])
+}
+
+model ProjectAttachment {
+  id           String   @id @default(cuid())
+  projectId    String
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fileName     String
+  originalName String
+  mimeType     String?
+  size         Int      @default(0)
+  storagePath  String
+  uploadedById String?
+  uploadedBy   User?    @relation("ProjectAttachmentUploader", fields: [uploadedById], references: [id])
+  createdAt    DateTime @default(now())
+
+  @@index([projectId])
+}
+
+model ContractorBid {
+  id           String    @id @default(cuid())
+  projectId    String
+  project      Project   @relation("ProjectBids", fields: [projectId], references: [id], onDelete: Cascade)
+  contractorId String
+  contractor   User      @relation(fields: [contractorId], references: [id])
+  price        Float
+  note         String?
+  status       BidStatus @default(PENDING)
+  createdAt    DateTime  @default(now())
+  wonProject   Project?  @relation("WinningBid")
+
+  @@unique([projectId, contractorId])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation("NotificationUser", fields: [userId], references: [id])
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  projectId String?
+  productId String?
+  createdAt DateTime         @default(now())
+}
+
+model ProjectMaterial {
+  id              String  @id @default(cuid())
+  projectId       String
+  project         Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product @relation(fields: [productId], references: [id])
+  quantityPlanned Int     @default(0)
+  quantityIssued  Int     @default(0)
+
+  @@unique([projectId, productId])
+}
+
+model Activity {
+  id          String       @id @default(cuid())
+  type        ActivityType @default(TASK)
   title       String
-  amount      Float      @default(0)
-  status      DealStatus @default(NEW)
-  notes       String?
-  leadId      String?    @unique
-  lead        Lead?      @relation(fields: [leadId], references: [id])
-  clientId    String?
-  client      User?      @relation(fields: [clientId], references: [id])
-  assigneeId  String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  description String?
+  dueDate     DateTime?
+  completed   Boolean      @default(false)
+  leadId      String?
+  lead        Lead?        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  dealId      String?
+  deal        Deal?        @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  projectId   String?
+  project     Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  authorId    String?
+  author      User?        @relation("ActivityAuthor", fields: [authorId], references: [id])
+  createdAt   DateTime     @default(now())
+}
+
+model Invoice {
+  id        String        @id @default(cuid())
+  number    String        @unique
+  amount    Float         @default(0)
+  status    InvoiceStatus @default(DRAFT)
+  dueDate   DateTime?
+  paidAt    DateTime?
+  notes     String?
+  projectId String?
+  project   Project?      @relation(fields: [projectId], references: [id])
+  clientId  String?
+  client    User?         @relation("InvoiceClient", fields: [clientId], references: [id])
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
 }
 
 model Product {
@@ -79,11 +376,37 @@ model Product {
   price       Float    @default(0)
   description String?
   minStock    Int      @default(0)
+  kitCategory KitCategory?
+  powerW      Float?
+  capacityKw  Float?
+  capacityKwh Float?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  stock       StockItem?
-  movements   StockMovement[]
+  stock              StockItem?
+  movements          StockMovement[]
+  projectMats        ProjectMaterial[]
+  kitItems           DealKitItem[]
+  proposalCostLines  ProposalCostLine[]
+  leadProposalItems  LeadProposalItem[]
+}
+
+model ProposalCostLine {
+  id                String         @id @default(cuid())
+  systemType        SystemType
+  category          KitCategory
+  allocation        CostAllocation @default(PER_PROJECT)
+  productId         String?
+  product           Product?       @relation(fields: [productId], references: [id])
+  qtyMultiplier     Float          @default(1)
+  unitPriceOverride Float?
+  label             String?
+  sortOrder         Int            @default(0)
+  enabled           Boolean        @default(true)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([systemType])
 }
 
 model StockItem {
@@ -102,6 +425,8 @@ model StockMovement {
   type        StockMovementType
   quantity    Int
   note        String?
+  projectId   String?
+  project     Project?          @relation(fields: [projectId], references: [id])
   authorId    String?
   author      User?             @relation("MovementAuthor", fields: [authorId], references: [id])
   createdAt   DateTime          @default(now())

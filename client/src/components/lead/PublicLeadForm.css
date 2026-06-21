@@ -1,0 +1,96 @@
+.public-lead-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.public-lead-form--with-calc {
+  margin-top: 40px;
+}
+
+.public-lead-form .btn--cta {
+  margin-top: 8px;
+  width: 100%;
+}
+
+.public-lead-form__estimate {
+  margin-top: 8px;
+  padding: 14px 16px;
+  background: rgba(45, 197, 110, 0.08);
+  border-left: 3px solid var(--green);
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.public-lead-form__estimate p {
+  margin: 0 0 6px;
+}
+
+.public-lead-form__fields {
+  padding: 28px;
+  border-top: 4px solid var(--green);
+  box-shadow: var(--shadow-lg);
+}
+
+.public-lead-form__fields-title {
+  font-size: 1rem;
+  color: var(--blue);
+  margin: 0 0 16px;
+}
+
+.city-combobox {
+  position: relative;
+}
+
+.city-combobox__list {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  max-height: 220px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+}
+
+.city-combobox__option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+  border-radius: 6px;
+  color: var(--blue);
+}
+
+.city-combobox__option:hover,
+.city-combobox__option--active {
+  background: rgba(45, 197, 110, 0.12);
+}
+
+.city-combobox__option--other {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.city-combobox__empty {
+  padding: 8px 10px;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.public-register-prompt .app-modal {
+  max-width: 440px;
+}
+

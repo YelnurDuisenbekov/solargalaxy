@@ -1,18 +1,36 @@
 import { Router } from 'express';
 import prisma from '../lib/prisma.js';
 import { authRequired, requireRoles } from '../lib/auth.js';
+import { getWhatsAppPublicStatus, verifyWhatsAppConnection } from '../lib/whatsappApi.js';
 
 const router = Router();
-router.use(authRequired, requireRoles('ADMIN', 'EMPLOYEE'));
+router.use(authRequired, requireRoles('ADMIN', 'EMPLOYEE', 'DIRECTOR', 'MANAGER'));
 
-router.get('/status', (_req, res) => {
-  res.json({
+router.get('/status', async (_req, res) => {
+  const oneC = {
     connected: Boolean(process.env.ONEC_API_URL),
     apiUrl: process.env.ONEC_API_URL || null,
     message: process.env.ONEC_API_URL
       ? 'Конфигурация 1С задана — готово к разработке обмена'
       : 'Укажите ONEC_API_URL и ONEC_API_KEY в .env для подключения 1С',
-  });
+  };
+
+  const waPublic = getWhatsAppPublicStatus();
+  let whatsapp = { ...waPublic, ready: false, message: 'Укажите WHATSAPP_TOKEN и WHATSAPP_PHONE_ID в .env' };
+
+  if (waPublic.configured) {
+    const verify = await verifyWhatsAppConnection();
+    whatsapp = {
+      ...waPublic,
+      ready: verify.ok,
+      phone: verify.displayPhone || null,
+      verifiedName: verify.verifiedName || null,
+      error: verify.ok ? null : verify.error,
+      message: verify.ok ? 'WhatsApp Cloud API подключён' : `Ошибка: ${verify.error || verify.reason}`,
+    };
+  }
+
+  res.json({ oneC, whatsapp });
 });
 
 router.post('/sync/products', async (req, res) => {
