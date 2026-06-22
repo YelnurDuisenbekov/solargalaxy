@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Reveal } from '../../components/motion/ScrollReveal';
-import { formatKzPhone } from '../../utils/leadValidation';
+import { formatKzPhone, PHONE_REGEX } from '../../utils/leadValidation';
 import './Login.css';
 
 function deliveryMessage(credentialsDelivery) {
@@ -53,12 +53,16 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setSuccess('');
+    if (loginMode === 'client' && !PHONE_REGEX.test(clientPhone)) {
+      setError('Введите телефон полностью: +7 XXX XXX XXXX');
+      return;
+    }
     try {
       const loginName = loginMode === 'client' ? clientPhone : staffLogin;
       const u = await login(loginName, password);
       navigate(u?.role === 'CLIENT' ? '/app/portal' : '/app');
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Не удалось войти');
     }
   };
 
@@ -174,7 +178,8 @@ export default function Login() {
 
           {mode === 'login' && loginMode === 'client' && (
             <p className="login-page__hint">
-              Используйте тот же номер, что указали в заявке на сайте
+              Телефон из заявки и пароль при регистрации. Нет аккаунта — вкладка «Регистрация».
+              {' '}Если забыли пароль — напишите менеджеру.
             </p>
           )}
         </Reveal>

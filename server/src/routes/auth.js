@@ -35,6 +35,21 @@ async function findUserByPhone(rawPhone) {
   return candidates.find((u) => normalizePhone(u.phone) === phoneNorm) || null;
 }
 
+async function findUserByLogin(login) {
+  const normalized = login.toLowerCase().trim();
+  return prisma.user.findFirst({
+    where: {
+      isActive: true,
+      OR: [
+        { login: normalized },
+        { email: normalized },
+        { email: `${normalized}@solargalaxy.kz` },
+      ],
+    },
+    include: { permissions: true },
+  });
+}
+
 router.post('/login', async (req, res) => {
   try {
     const schema = z.object({
@@ -46,18 +61,14 @@ router.post('/login', async (req, res) => {
     let user = await findUserByPhone(login);
 
     if (!user) {
-      const normalized = login.toLowerCase().trim();
-      user = await prisma.user.findFirst({
-        where: {
-          isActive: true,
-          OR: [
-            { login: normalized },
-            { email: normalized },
-            { email: `${normalized}@solargalaxy.kz` },
-          ],
-        },
-        include: { permissions: true },
-      });
+      user = await findUserByLogin(login);
+    }
+
+    if (!user) {
+      const phoneNorm = normalizePhone(login);
+      if (phoneNorm) {
+        user = await findUserByLogin(clientAccountLogin(phoneNorm));
+      }
     }
 
     if (!user || !(await bcrypt.compare(password, user.passwordHash))) {

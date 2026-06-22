@@ -17,6 +17,9 @@ export function AuthProvider({ children }) {
 
   const login = async (loginName, password) => {
     const { token, user: u } = await authApi.login(loginName, password);
+    if (!token || !u?.id) {
+      throw new Error('Сервер API недоступен или вернул некорректный ответ');
+    }
     localStorage.setItem('sg_token', token);
     setUser(u);
     return u;

@@ -1,7 +1,9 @@
 import { flashSuccess } from '../lib/flashBus';
 import { getMutationFlashMessage } from '../lib/mutationFlash';
 
-const API = '/api';
+/** На Vercel задайте VITE_API_URL=https://ваш-api-хост (без /api в конце). Локально — proxy /api. */
+const API_ROOT = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+const API = API_ROOT ? `${API_ROOT}/api` : '/api';
 
 function getToken() {
   return localStorage.getItem('sg_token');
@@ -20,7 +22,26 @@ export async function api(path, options = {}) {
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(`${API}${path}`, { ...options, headers });
+  let res;
+  try {
+    res = await fetch(`${API}${path}`, { ...options, headers });
+  } catch {
+    throw new ApiError(
+      API_ROOT
+        ? 'Не удалось связаться с сервером. Проверьте интернет.'
+        : 'Сервер API недоступен. Запустите проект: npm run dev',
+    );
+  }
+
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new ApiError(
+      API_ROOT
+        ? 'Сервер API не отвечает (неверный адрес или сервер выключен).'
+        : 'Сервер API недоступен. Запустите backend: npm run dev',
+    );
+  }
+
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const err = new ApiError(data.error || `Ошибка ${res.status}`, data.fields);

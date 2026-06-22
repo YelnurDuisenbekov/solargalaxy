@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: solargalaxy
+      POSTGRES_PASSWORD: solargalaxy
+      POSTGRES_DB: solargalaxy
+    volumes:
+      - solargalaxy_pg:/var/lib/postgresql/data
+
+volumes:
+  solargalaxy_pg:

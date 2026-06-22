@@ -9,6 +9,7 @@
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "db:seed": "node prisma/seed.js",
+    "db:seed-prod": "node prisma/seed-prod.js",
     "sync:reservations": "node scripts/sync-reservations.js",
     "db:clear-crm": "node prisma/clear-crm.js",
     "reminder:run": "node scripts/run-reminder.js",
@@ -25,9 +26,8 @@
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
+    "prisma": "^6.9.0",
     "zod": "^3.25.56"
   },
-  "devDependencies": {
-    "prisma": "^6.9.0"
-  }
+  "devDependencies": {}
 }
