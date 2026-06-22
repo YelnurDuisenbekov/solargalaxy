@@ -40,10 +40,13 @@ export async function verifyGreenApiConnection() {
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
+    const errMsg = data?.message || data?.error || res.statusText;
     return {
       ok: false,
-      reason: 'auth_failed',
-      error: data?.message || data?.error || res.statusText,
+      reason: res.status === 401 ? 'invalid_token' : 'auth_failed',
+      error: res.status === 401
+        ? 'Неверный apiTokenInstance — скопируйте актуальный токен в console.green-api.com → ваш инстанс'
+        : errMsg,
     };
   }
 

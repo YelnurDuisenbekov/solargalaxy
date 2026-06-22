@@ -1,6 +1,6 @@
 import prisma from './prisma.js';
 
-export async function notifySupplyUsers({ type, title, message, projectId, productId }) {
+export async function notifySupplyUsers({ type, title, message, projectId, productId, fromUserId }) {
   const supplyUsers = await prisma.user.findMany({
     where: { role: { in: ['SUPPLY', 'ADMIN'] }, isActive: true },
   });
@@ -9,6 +9,7 @@ export async function notifySupplyUsers({ type, title, message, projectId, produ
   await prisma.notification.createMany({
     data: supplyUsers.map((u) => ({
       userId: u.id,
+      fromUserId: fromUserId ?? null,
       type,
       title,
       message,

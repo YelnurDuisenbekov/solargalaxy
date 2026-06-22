@@ -146,60 +146,7 @@
   line-height: 1.55;
 }
 
-/* Калькулятор */
-.calculator {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 40px;
-  align-items: start;
-  margin-top: 40px;
-}
-
-.calculator__form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.calculator__field label {
-  display: block;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--blue);
-  margin-bottom: 6px;
-}
-
-.calculator__tariff-hint {
-  margin-top: 8px;
-  font-size: 0.8125rem;
-  line-height: 1.45;
-}
-
-.calculator__tariff-hint--below {
-  color: var(--green-dark);
-}
-
-.calculator__tariff-hint--above {
-  color: var(--blue);
-}
-
-.calculator__tariff-hint strong {
-  font-weight: 700;
-}
-
-.calculator__chart {
-  padding: 24px;
-  overflow: hidden;
-}
-
-.calculator__form-wrap,
-.calculator__chart-wrap {
-  min-width: 0;
-}
-
-.calculator__submit {
-  align-self: flex-start;
-}
+/* Калькулятор — стили полей перенесены в PublicLeadForm.css; график ниже */
 
 .home-cta__msg {
   font-size: 0.875rem;
@@ -352,7 +299,6 @@
 @media (max-width: 480px) {
   .tariff-chart__legend { gap: 10px; }
   .tariff-chart__badge { font-size: 0.6875rem; padding: 3px 8px; }
-  .calculator__chart { padding: 16px 12px; }
 }
 
 @media (max-width: 360px) {
@@ -487,7 +433,6 @@
 @media (max-width: 900px) {
   .audience { grid-template-columns: 1fr; }
   .advantages { grid-template-columns: repeat(2, 1fr); }
-  .calculator { grid-template-columns: 1fr; }
   .steps { grid-template-columns: repeat(2, 1fr); }
   .home-cta__inner { grid-template-columns: 1fr; gap: 32px; }
 }
@@ -515,7 +460,6 @@
   .hero__actions .btn { width: 100%; }
   .hero__stat { min-width: calc(50% - 10px); }
   .home-cta { padding: 48px 0; }
-  .calculator__submit { width: 100%; }
 }
 
 @media (max-width: 360px) {

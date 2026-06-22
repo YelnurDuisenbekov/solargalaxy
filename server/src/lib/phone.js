@@ -37,6 +37,20 @@ export function clientAccountEmail(phoneNorm) {
   return `${phoneNorm}@clients.solargalaxy.kz`;
 }
 
+/** Активный клиент по номеру телефона */
+export async function findClientByPhone(prisma, rawPhone) {
+  const phoneNorm = normalizePhone(rawPhone);
+  const filter = leadPhoneDbFilter(rawPhone);
+  if (!phoneNorm || !filter) return null;
+
+  const candidates = await prisma.user.findMany({
+    where: { ...filter, role: 'CLIENT', isActive: true },
+    select: { id: true, phone: true, fullName: true },
+  });
+
+  return candidates.find((u) => normalizePhone(u.phone) === phoneNorm) || null;
+}
+
 /** Формат для отображения: +7 700 123 4567 */
 export function formatPhoneDisplay(normalized) {
   if (!normalized || normalized.length !== 11) return normalized;

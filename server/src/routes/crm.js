@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 import prisma from '../lib/prisma.js';
 
-import { authRequired, attachUser, requirePermission } from '../lib/auth.js';
+import { authRequired, attachUser, requirePermission, requireRoles } from '../lib/auth.js';
 
 import { PERMISSIONS } from '../lib/permissions.js';
 
@@ -20,6 +20,8 @@ import {
   proposalItemsForProject,
 } from '../lib/leadProposal.js';
 import { projectIdentityFields } from '../lib/projectIdentity.js';
+import { syncProjectReservations } from '../lib/stockReservation.js';
+import { isAdminUser, reassignLead } from '../lib/reassign.js';
 
 import { isWhatsAppConfigured, sendLeadWhatsAppMessage } from '../lib/whatsappApi.js';
 
@@ -165,7 +167,9 @@ router.post('/leads', requirePermission(PERMISSIONS.CRM_EDIT, PERMISSIONS.ADMIN_
 
         ...data,
 
-        assigneeId: data.assigneeId || req.user.id,
+        assigneeId: isAdminUser(req.user, req.permissions)
+          ? (data.assigneeId || null)
+          : req.user.id,
 
       },
 
@@ -204,6 +208,10 @@ router.patch('/leads/:id', requirePermission(PERMISSIONS.CRM_EDIT, PERMISSIONS.A
     if (access.error) return res.status(access.status).json({ error: access.error });
 
     const data = leadPatchSchema.parse(req.body);
+
+    if (data.assigneeId !== undefined && !isAdminUser(req.user, req.permissions)) {
+      delete data.assigneeId;
+    }
 
     const existing = await prisma.lead.findUnique({ where: { id: req.params.id } });
 
@@ -253,7 +261,7 @@ router.patch('/leads/:id', requirePermission(PERMISSIONS.CRM_EDIT, PERMISSIONS.A
 
 
 
-router.post('/leads/:id/claim', async (req, res) => {
+router.post('/leads/:id/claim', requireRoles('MANAGER'), async (req, res) => {
 
   try {
 
@@ -284,6 +292,36 @@ router.post('/leads/:id/claim', async (req, res) => {
     res.json(updated);
 
   } catch (e) {
+
+    res.status(500).json({ error: 'Ошибка сервера' });
+
+  }
+
+});
+
+
+
+router.post('/leads/:id/reassign', requirePermission(PERMISSIONS.ADMIN_FULL), async (req, res) => {
+
+  const schema = z.object({ assigneeId: z.string().min(1) });
+
+  try {
+
+    const { assigneeId } = schema.parse(req.body);
+
+    const lead = await reassignLead(req.params.id, assigneeId, req.user);
+
+    const full = await prisma.lead.findUnique({ where: { id: lead.id }, include: leadInclude });
+
+    res.json(full);
+
+  } catch (e) {
+
+    if (e.message === 'NOT_FOUND') return res.status(404).json({ error: e.message });
+
+    if (e.message === 'INVALID_ASSIGNEE') return res.status(400).json({ error: e.message });
+
+    if (e.name === 'ZodError') return res.status(400).json({ error: 'Укажите менеджера' });
 
     res.status(500).json({ error: 'Ошибка сервера' });
 
@@ -647,6 +685,8 @@ router.post('/leads/:id/convert', async (req, res) => {
 
 
 
+      await syncProjectReservations(created.id, tx);
+
       await tx.lead.update({ where: { id: lead.id }, data: { status: 'CONVERTED' } });
 
 
@@ -897,6 +937,10 @@ router.patch('/deals/:id', requirePermission(PERMISSIONS.CRM_EDIT, PERMISSIONS.A
 
 
     const updateData = { ...data };
+
+    if (updateData.assigneeId !== undefined && !isAdminUser(req.user, req.permissions)) {
+      delete updateData.assigneeId;
+    }
 
     delete updateData.recalcKit;
 

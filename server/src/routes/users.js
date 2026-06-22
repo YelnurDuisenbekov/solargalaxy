@@ -4,6 +4,7 @@ import { z } from 'zod';
 import prisma from '../lib/prisma.js';
 import { authRequired, attachUser, requirePermission, sanitizeUser } from '../lib/auth.js';
 import { PERMISSIONS, listAssignablePermissions } from '../lib/permissions.js';
+import { sendClientCredentials } from '../lib/clientCredentials.js';
 
 const router = Router();
 router.use(authRequired, attachUser);
@@ -63,7 +64,18 @@ router.post('/', requirePermission(PERMISSIONS.USERS_CREATE, PERMISSIONS.ADMIN_F
       },
       include: { permissions: true },
     });
-    res.status(201).json(sanitizeUser(user));
+
+    let credentialsDelivery = null;
+    if (data.role === 'CLIENT' && data.phone) {
+      credentialsDelivery = await sendClientCredentials({
+        fullName: user.fullName,
+        phone: data.phone,
+        login: user.login,
+        password: data.password,
+      });
+    }
+
+    res.status(201).json({ ...sanitizeUser(user), credentialsDelivery });
   } catch (e) {
     if (e.name === 'ZodError') return res.status(400).json({ error: 'Неверные данные' });
     res.status(500).json({ error: 'Ошибка сервера' });

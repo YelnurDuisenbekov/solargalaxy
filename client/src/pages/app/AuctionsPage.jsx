@@ -35,12 +35,22 @@ export default function AuctionsPage({ mode = 'open' }) {
 
   const detail = auctions.find((p) => p.id === selected);
 
-  const acceptLowest = async (projectId) => {
+  const acceptBid = async (projectId, bidId) => {
     setError('');
     setSuccess('');
     try {
-      await erpApi.acceptLowestBid(projectId);
-      setSuccess('Подрядчик выбран — минимальная ставка принята');
+      await erpApi.acceptBid(projectId, bidId);
+      setSuccess('Подрядчик выбран');
+      load();
+    } catch (e) { setError(e.message); }
+  };
+
+  const closeAuction = async (projectId) => {
+    setError('');
+    setSuccess('');
+    try {
+      await erpApi.closeAuction(projectId);
+      setSuccess('Торги закрыты без выбора подрядчика');
       load();
     } catch (e) { setError(e.message); }
   };
@@ -52,9 +62,6 @@ export default function AuctionsPage({ mode = 'open' }) {
     } catch (e) { setError(e.message); }
   };
 
-  const pendingBids = detail?.bids?.filter((b) => b.status === 'PENDING') ?? [];
-  const lowestPending = pendingBids[0];
-
   return (
     <div>
       <Reveal>
@@ -62,7 +69,7 @@ export default function AuctionsPage({ mode = 'open' }) {
         <p className="app-page-desc">
           {isResults
             ? 'История завершённых торгов: проект, победитель и итоговая цена.'
-            : 'Открытые торги по проектам. Подрядчики подают ставки на монтаж — выбирается минимальная.'}
+            : 'Открытые торги по проектам. Менеджер выбирает подрядчика с учётом цены и качества.'}
         </p>
       </Reveal>
 
@@ -194,7 +201,7 @@ export default function AuctionsPage({ mode = 'open' }) {
                   <div className="table-wrap">
                     <table className="table table--compact">
                       <thead>
-                        <tr><th>Подрядчик</th><th>Цена</th><th>Статус</th><th>Дата</th></tr>
+                        <tr><th>Подрядчик</th><th>Цена</th><th>Статус</th><th>Дата</th><th></th></tr>
                       </thead>
                       <tbody>
                         {detail.bids.map((b) => (
@@ -203,6 +210,13 @@ export default function AuctionsPage({ mode = 'open' }) {
                             <td>{formatMoney(b.price)}</td>
                             <td>{b.status === 'WON' ? 'Выиграла' : b.status === 'LOST' ? 'Проиграла' : 'На рассмотрении'}</td>
                             <td>{new Date(b.createdAt).toLocaleDateString('ru-RU')}</td>
+                            <td>
+                              {canManage && b.status === 'PENDING' && detail.auctionOpen && (
+                                <button type="button" className="btn btn--primary app-table-btn" onClick={() => acceptBid(detail.id, b.id)}>
+                                  Выбрать
+                                </button>
+                              )}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -212,10 +226,10 @@ export default function AuctionsPage({ mode = 'open' }) {
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Ставок пока нет</p>
                 )}
 
-                {canManage && detail.auctionOpen && pendingBids.length > 0 && (
+                {canManage && detail.auctionOpen && (
                   <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                    <button type="button" className="btn btn--primary" onClick={() => acceptLowest(detail.id)}>
-                      Выбрать минимальную ({formatMoney(lowestPending.price)} — {lowestPending.contractor?.fullName})
+                    <button type="button" className="btn btn--outline-dark app-table-btn" onClick={() => closeAuction(detail.id)}>
+                      Закрыть без выбора подрядчика
                     </button>
                   </div>
                 )}

@@ -279,7 +279,7 @@ export default function ContractorPage({ tab = 'auctions' }) {
       <Reveal>
         <h1 className="app-page-title">Торги</h1>
         <p className="app-page-desc">
-          Выберите проект слева — справа откроется полная карточка с документами. Побеждает минимальная ставка.
+          Выберите проект слева — справа откроется полная карточка с документами. Подрядчика выбирает менеджер.
         </p>
         {tabBar}
       </Reveal>

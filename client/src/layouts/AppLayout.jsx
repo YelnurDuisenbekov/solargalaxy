@@ -1,13 +1,14 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { USER_ROLE } from '../utils/crmLabels';
-import { APP_NAV_GROUPS, CLIENT_NAV } from '../config/navLinks';
+import { CLIENT_NAV, getNavGroupsForUser } from '../config/navLinks';
 import './AppLayout.css';
 import '../pages/app/app-pages.css';
 
 export default function AppLayout() {
-  const { user, logout, isClient } = useAuth();
+  const { user, logout, isClient, hasPerm, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const navGroups = isClient ? null : getNavGroupsForUser({ user, hasPerm, isAdmin });
 
   return (
     <div className="app-layout">
@@ -29,7 +30,7 @@ export default function AppLayout() {
               </NavLink>
             ))
           ) : (
-            APP_NAV_GROUPS.map((group) => (
+            navGroups.map((group) => (
               <div key={group.id} className={`app-sidebar__group app-sidebar__group--${group.id}`}>
                 <div className="app-sidebar__group-head">
                   <span className="app-sidebar__group-badge">{group.label}</span>

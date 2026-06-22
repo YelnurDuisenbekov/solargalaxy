@@ -27,7 +27,7 @@ import './app-pages.css';
 
 export default function Dashboard() {
 
-  const { user, isCrm, isContractor, isClient, isAccountant, hasPerm } = useAuth();
+  const { user, isCrm, isContractor, isClient, isAccountant, hasPerm, canClaimLeads } = useAuth();
 
   const [leads, setLeads] = useState([]);
 
@@ -194,6 +194,19 @@ export default function Dashboard() {
 
     { label: 'Низкий остаток', value: formatNum(stats.wh.lowStockCount), link: '/app/warehouse', alert: stats.wh.lowStockCount > 0 },
 
+    ...(stats.wh.pendingTransferActsForUser > 0 ? [{
+      label: 'Акты к приёмке',
+      value: stats.wh.pendingTransferActsForUser,
+      link: '/app/warehouse?tab=acts',
+      alert: true,
+    }] : []),
+
+    ...(hasPerm('pricing.edit') ? [{
+      label: 'Ценообразование',
+      value: '→',
+      link: '/app/pricing',
+    }] : []),
+
   ] : [];
 
 
@@ -264,6 +277,48 @@ export default function Dashboard() {
               ))}
 
             </div>
+
+          </div>
+
+        </Reveal>
+
+      )}
+
+
+
+      {stats?.wh?.pendingTransferActsForUser > 0 && (
+
+        <Reveal delay={0.04}>
+
+          <div className="card app-section-card" style={{ marginBottom: 24, borderLeft: '4px solid #b45309' }}>
+
+            <div className="app-toolbar">
+
+              <h2 className="app-section-card__title" style={{ margin: 0 }}>
+                Акты приём-передачи ({stats.wh.pendingTransferActsForUser})
+              </h2>
+
+              <Link to="/app/warehouse?tab=acts" className="btn btn--primary">Перейти к актам</Link>
+
+            </div>
+
+            <p style={{ margin: '8px 0 0', color: 'var(--text-muted)', fontSize: '0.9375rem' }}>
+              Есть материалы, переданные со склада — требуется ваша приёмка.
+            </p>
+
+            {stats.wh.pendingTransferActs?.length > 0 && (
+              <ul style={{ margin: '12px 0 0', paddingLeft: 20, fontSize: '0.875rem' }}>
+                {stats.wh.pendingTransferActs.map((act) => (
+                  <li key={act.id}>
+                    <strong>{act.actNumber}</strong>
+                    {' — '}
+                    {act.project?.projectNumber || act.project?.title || 'Проект'}
+                    {' · '}
+                    {act.issuedBy?.fullName || 'завсклад'}
+                  </li>
+                ))}
+              </ul>
+            )}
 
           </div>
 
@@ -387,7 +442,7 @@ export default function Dashboard() {
                         <div className="app-lead-actions__row">
                           <LeadWhatsAppLink lead={l} user={user} onContact={markLeadContact} />
                         </div>
-                        {!l.assignee && l.status !== 'CONVERTED' && (
+                        {!l.assignee && l.status !== 'CONVERTED' && canClaimLeads && (
                           <button type="button" className="btn btn--dark app-lead-actions__claim" onClick={() => claimLead(l.id)}>
                             Забрать
                           </button>
@@ -434,7 +489,7 @@ function NavigateContractor() {
 
       <h1 className="app-page-title">Кабинет подрядчика</h1>
 
-      <p className="app-page-desc">Проекты на разогреве — выставляйте цену. Побеждает минимальная ставка.</p>
+      <p className="app-page-desc">Проекты на разогреве — выставляйте цену. Подрядчика выбирает менеджер.</p>
 
       <Link to="/app/auctions" className="btn btn--primary">Открытые торги</Link>
 
@@ -486,7 +541,7 @@ function WarehouseDashboard() {
 
     warehouseApi.summary().then(setWh).catch(() => {});
 
-    erpApi.projects().then((p) => setProjects(p.filter((x) => ['PROCUREMENT', 'INSTALLATION'].includes(x.phase)))).catch(() => {});
+    warehouseApi.issuableProjects().then(setProjects).catch(() => {});
 
   }, []);
 
@@ -498,9 +553,9 @@ function WarehouseDashboard() {
 
       <Reveal>
 
-        <h1 className="app-page-title">Склад — выдача материалов</h1>
+        <h1 className="app-page-title">Склад</h1>
 
-        <p className="app-page-desc">Выдача товара при передаче проекта на реализацию. При нехватке — уведомление снабженцу.</p>
+        <p className="app-page-desc">Приёмка, выдача материалов и остатки.</p>
 
       </Reveal>
 
@@ -508,19 +563,19 @@ function WarehouseDashboard() {
 
         <RevealItem>
 
-          <div className="card app-stat-card">
+          <Link to="/app/warehouse" className="card app-stat-card" style={{ display: 'block', textDecoration: 'none' }}>
 
             <p className="app-stat-card__label">SKU на складе</p>
 
             <p className="app-stat-card__value">{wh?.totalSkus ?? '—'}</p>
 
-          </div>
+          </Link>
 
         </RevealItem>
 
         <RevealItem>
 
-          <div className="card app-stat-card">
+          <Link to="/app/warehouse" className="card app-stat-card" style={{ display: 'block', textDecoration: 'none' }}>
 
             <p className="app-stat-card__label">Низкий остаток</p>
 
@@ -530,19 +585,23 @@ function WarehouseDashboard() {
 
             </p>
 
-          </div>
+          </Link>
 
         </RevealItem>
 
         <RevealItem>
 
-          <div className="card app-stat-card">
+          <Link to="/app/warehouse?tab=acts" className="card app-stat-card" style={{ display: 'block', textDecoration: 'none' }}>
 
-            <p className="app-stat-card__label">Проектов к выдаче</p>
+            <p className="app-stat-card__label">Акты (ожидают)</p>
 
-            <p className="app-stat-card__value">{projects.length}</p>
+            <p className="app-stat-card__value" style={{ color: wh?.pendingTransferActsTotal > 0 ? '#b45309' : 'var(--primary)' }}>
 
-          </div>
+              {wh?.pendingTransferActsTotal ?? '—'}
+
+            </p>
+
+          </Link>
 
         </RevealItem>
 
@@ -552,19 +611,25 @@ function WarehouseDashboard() {
 
         <div className="card app-section-card" style={{ marginTop: 24 }}>
 
-          <h2 className="app-section-card__title">Проекты на реализации</h2>
+          <div className="app-toolbar">
+            <h2 className="app-section-card__title" style={{ margin: 0 }}>Выдача на проекты</h2>
+            <Link to="/app/warehouse" className="btn btn--primary">Открыть склад</Link>
+          </div>
 
           {projects.length ? projects.map((p) => (
 
             <div key={p.id} style={{ padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
 
               <strong>{p.title}</strong> — {p.city || '—'}
+              {p.assignee?.fullName && (
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}> · {p.assignee.fullName}</span>
+              )}
 
-              <Link to="/app/projects" className="btn btn--dark app-table-btn" style={{ marginLeft: 12 }}>Выдать</Link>
+              <Link to={`/app/warehouse?issueProject=${p.id}`} className="btn btn--dark app-table-btn" style={{ marginLeft: 12 }}>Выдать</Link>
 
             </div>
 
-          )) : <p style={{ color: 'var(--text-muted)' }}>Нет проектов в фазе закупки/монтажа</p>}
+          )) : <p style={{ color: 'var(--text-muted)' }}>Нет проектов с невыданными материалами</p>}
 
         </div>
 

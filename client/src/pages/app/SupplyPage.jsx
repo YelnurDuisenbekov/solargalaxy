@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react';
 
 import { operationsApi } from '../../api';
+import { useAuth } from '../../context/AuthContext';
 
 import { Reveal } from '../../components/motion/ScrollReveal';
 
 import './app-pages.css';
 
 
-
-const SUPPLY_NOTIFICATION_TYPES = ['PURCHASE_REQUIRED', 'LOW_STOCK', 'PROJECT_UPDATE'];
 
 const TYPE_LABEL = {
 
@@ -18,11 +17,89 @@ const TYPE_LABEL = {
 
   PROJECT_UPDATE: 'Проект',
 
+  QUALIFIED_LEAD_REMINDER: 'Лиды',
+
+  AUTO_WHATSAPP_FOLLOWUP: 'WhatsApp',
+
+  MATERIALS_APPROVAL: 'Согласование',
+
+  STOCK_ADJUSTMENT: 'Склад',
+
+  MATERIAL_TRANSFER: 'Акт',
+
+  ASSIGNEE_CHANGED: 'Назначение',
+
+  MATERIAL_WRITE_OFF: 'Списание',
+
 };
 
 
 
+function NotificationCard({ n, showRecipient, onMarkRead }) {
+
+  return (
+
+    <div
+
+      className={`card app-activity-item${n.read ? ' app-activity-item--done' : ''}`}
+
+      style={{ borderLeft: n.read ? undefined : '3px solid var(--primary, #2563eb)' }}
+
+    >
+
+      <div className="app-activity-item__body" style={{ flex: 1 }}>
+
+        <div className="app-activity-item__title">
+
+          <span className="badge badge--progress" style={{ marginRight: 8 }}>{TYPE_LABEL[n.type] || n.type}</span>
+
+          {n.title}
+
+        </div>
+
+        <p style={{ fontSize: '0.875rem', marginTop: 6 }}>{n.message}</p>
+
+        <div className="app-activity-item__meta">
+
+          {showRecipient && n.user?.fullName && (
+
+            <span style={{ marginRight: 12 }}>Кому: <strong>{n.user.fullName}</strong></span>
+
+          )}
+
+          {n.fromUser?.fullName && (
+
+            <span style={{ marginRight: 12 }}>От: <strong>{n.fromUser.fullName}</strong></span>
+
+          )}
+
+          {new Date(n.createdAt).toLocaleString('ru-RU')}
+
+        </div>
+
+      </div>
+
+      {!n.read && onMarkRead && (
+
+        <button type="button" className="btn btn--dark app-table-btn" onClick={() => onMarkRead(n.id)}>OK</button>
+
+      )}
+
+    </div>
+
+  );
+
+}
+
+
+
 export default function SupplyPage() {
+
+  const { isDirector, isAdmin } = useAuth();
+
+  const canViewAll = isDirector || isAdmin;
+
+  const [tab, setTab] = useState('mine');
 
   const [notifications, setNotifications] = useState([]);
 
@@ -36,11 +113,17 @@ export default function SupplyPage() {
 
     setLoading(true);
 
-    operationsApi.notifications()
+    const fetcher = tab === 'all' && canViewAll
+
+      ? operationsApi.allNotifications()
+
+      : operationsApi.notifications();
+
+    fetcher
 
       .then((data) => {
 
-        setNotifications(data.filter((n) => SUPPLY_NOTIFICATION_TYPES.includes(n.type)));
+        setNotifications(data);
 
         setError('');
 
@@ -54,7 +137,7 @@ export default function SupplyPage() {
 
 
 
-  useEffect(load, []);
+  useEffect(load, [tab, canViewAll]);
 
 
 
@@ -62,7 +145,7 @@ export default function SupplyPage() {
 
     try {
 
-      await operationsApi.markRead(id);
+      await operationsApi.markRead(id, tab === 'all' ? 'all' : undefined);
 
       load();
 
@@ -80,7 +163,7 @@ export default function SupplyPage() {
 
     try {
 
-      await operationsApi.markAllRead();
+      await operationsApi.markAllRead(tab === 'all' ? 'all' : undefined);
 
       load();
 
@@ -104,15 +187,65 @@ export default function SupplyPage() {
 
       <Reveal>
 
-        <h1 className="app-page-title">Снабжение — уведомления</h1>
+        <h1 className="app-page-title">
+
+          {canViewAll && tab === 'all' ? 'Все уведомления' : 'Уведомления'}
+
+        </h1>
 
         <p className="app-page-desc">
 
-          Запросы на докупку товара при нехватке на складе или при выдаче на проект.
+          {canViewAll && tab === 'all'
+
+            ? 'Маршрутизация уведомлений: от кого и кому они отправлены.'
+
+            : 'Ваши уведомления по проектам, складу, лидам и назначениям.'}
 
         </p>
 
       </Reveal>
+
+
+
+      {canViewAll && (
+
+        <div className="app-toolbar" style={{ marginBottom: 8 }}>
+
+          <div className="app-tabs">
+
+            <button
+
+              type="button"
+
+              className={`app-tab${tab === 'mine' ? ' app-tab--active' : ''}`}
+
+              onClick={() => setTab('mine')}
+
+            >
+
+              Мои
+
+            </button>
+
+            <button
+
+              type="button"
+
+              className={`app-tab${tab === 'all' ? ' app-tab--active' : ''}`}
+
+              onClick={() => setTab('all')}
+
+            >
+
+              Все уведомления
+
+            </button>
+
+          </div>
+
+        </div>
+
+      )}
 
 
 
@@ -124,7 +257,7 @@ export default function SupplyPage() {
 
         </span>
 
-        {!loading && unread > 0 && (
+        {!loading && unread > 0 && tab === 'mine' && (
 
           <button type="button" className="btn btn--dark" onClick={markAll}>Прочитать все</button>
 
@@ -140,16 +273,6 @@ export default function SupplyPage() {
 
           <p className="error-msg">{error}</p>
 
-          {error.includes('прав') && (
-
-            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: 8 }}>
-
-              Перелогиньтесь после обновления системы или обратитесь к администратору.
-
-            </p>
-
-          )}
-
         </div>
 
       )}
@@ -160,43 +283,17 @@ export default function SupplyPage() {
 
         {notifications.map((n) => (
 
-          <div
+          <NotificationCard
 
             key={n.id}
 
-            className={`card app-activity-item${n.read ? ' app-activity-item--done' : ''}`}
+            n={n}
 
-            style={{ borderLeft: n.read ? undefined : '3px solid var(--primary, #2563eb)' }}
+            showRecipient={tab === 'all'}
 
-          >
+            onMarkRead={tab === 'mine' ? markRead : undefined}
 
-            <div className="app-activity-item__body" style={{ flex: 1 }}>
-
-              <div className="app-activity-item__title">
-
-                <span className="badge badge--progress" style={{ marginRight: 8 }}>{TYPE_LABEL[n.type] || n.type}</span>
-
-                {n.title}
-
-              </div>
-
-              <p style={{ fontSize: '0.875rem', marginTop: 6 }}>{n.message}</p>
-
-              <div className="app-activity-item__meta">
-
-                {new Date(n.createdAt).toLocaleString('ru-RU')}
-
-              </div>
-
-            </div>
-
-            {!n.read && (
-
-              <button type="button" className="btn btn--dark app-table-btn" onClick={() => markRead(n.id)}>OK</button>
-
-            )}
-
-          </div>
+          />
 
         ))}
 
@@ -204,7 +301,7 @@ export default function SupplyPage() {
 
           <p style={{ color: 'var(--text-muted)' }}>
 
-            Уведомлений пока нет. Они появятся, когда на складе не хватит товара для проекта или остаток станет низким.
+            Уведомлений пока нет.
 
           </p>
 
@@ -217,5 +314,4 @@ export default function SupplyPage() {
   );
 
 }
-
 

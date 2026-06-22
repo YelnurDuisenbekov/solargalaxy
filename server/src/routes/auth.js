@@ -10,15 +10,16 @@ import {
   clientAccountLogin,
   clientAccountEmail,
 } from '../lib/phone.js';
-import { linkProjectsToClient } from '../lib/projectIdentity.js';
+import { linkProjectsToClient, linkLeadsToClient } from '../lib/projectIdentity.js';
 import { phoneSchema } from '../lib/leadValidation.js';
 import { sendClientCredentials } from '../lib/clientCredentials.js';
 
 const router = Router();
 
-async function attachClientProjects(user) {
+async function attachClientAccount(user) {
   if (user.role !== 'CLIENT' || !user.phone) return;
   await linkProjectsToClient(prisma, user.id, user.phone);
+  await linkLeadsToClient(prisma, user.id, user.phone);
 }
 
 async function findUserByPhone(rawPhone) {
@@ -63,7 +64,7 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Неверные данные для входа' });
     }
 
-    await attachClientProjects(user);
+    await attachClientAccount(user);
     const token = signToken(user);
     res.json({ token, user: sanitizeUser(user) });
   } catch (e) {
@@ -109,9 +110,11 @@ router.post('/register-client', async (req, res) => {
       include: { permissions: true },
     });
     await linkProjectsToClient(prisma, user.id, data.phone);
+    await linkLeadsToClient(prisma, user.id, data.phone);
     const credentialsDelivery = await sendClientCredentials({
       fullName: user.fullName,
       phone: phoneDisplay,
+      login: phoneDisplay,
       password: data.password,
     });
     const token = signToken(user);

@@ -1,4 +1,4 @@
-import { normalizePhone, formatPhoneDisplay } from './phone.js';
+import { normalizePhone, formatPhoneDisplay, leadPhoneDbFilter } from './phone.js';
 
 export async function nextProjectNumber(prisma) {
   const year = new Date().getFullYear();
@@ -14,6 +14,33 @@ export async function nextProjectNumber(prisma) {
     if (Number.isFinite(n)) seq = n + 1;
   }
   return `${prefix}${String(seq).padStart(4, '0')}`;
+}
+
+/** Привязать заявки к клиенту по номеру телефона. */
+export async function linkLeadsToClient(prisma, clientId, phone) {
+  const phoneNorm = normalizePhone(phone);
+  if (!phoneNorm || !clientId) return 0;
+
+  const filter = leadPhoneDbFilter(phone);
+  if (!filter) return 0;
+
+  const candidates = await prisma.lead.findMany({
+    where: { ...filter, clientId: null },
+    select: { id: true, phone: true },
+  });
+
+  const ids = candidates
+    .filter((l) => normalizePhone(l.phone) === phoneNorm)
+    .map((l) => l.id);
+
+  if (!ids.length) return 0;
+
+  const { count } = await prisma.lead.updateMany({
+    where: { id: { in: ids } },
+    data: { clientId },
+  });
+
+  return count;
 }
 
 /** Привязать проекты к клиенту по номеру телефона. */

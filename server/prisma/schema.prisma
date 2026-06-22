@@ -83,6 +83,36 @@ enum NotificationType {
   PROJECT_UPDATE
   QUALIFIED_LEAD_REMINDER
   AUTO_WHATSAPP_FOLLOWUP
+  MATERIALS_APPROVAL
+  STOCK_ADJUSTMENT
+  MATERIAL_TRANSFER
+  ASSIGNEE_CHANGED
+  MATERIAL_WRITE_OFF
+}
+
+enum MaterialTransferActStatus {
+  PENDING_MANAGER
+  ACCEPTED
+}
+
+enum MaterialWriteOffStatus {
+  PENDING_DIRECTOR
+  PENDING_ACCOUNTANT
+  APPROVED
+  REJECTED
+}
+
+enum StockAdjustmentStatus {
+  PENDING_DIRECTOR
+  APPROVED
+  REJECTED
+}
+
+enum MaterialsApprovalStatus {
+  NONE
+  PENDING_DIRECTOR
+  APPROVED
+  RETURNED
 }
 
 enum BidStatus {
@@ -132,11 +162,20 @@ model User {
   assignedProjects Project[]       @relation("ProjectAssignee")
   clientProjects   Project[]       @relation("ProjectClient")
   clientInvoices   Invoice[]       @relation("InvoiceClient")
+  clientLeads      Lead[]          @relation("LeadClient")
   stockMoves       StockMovement[] @relation("MovementAuthor")
+  stockReceipts    StockReceipt[]  @relation("StockReceiptAuthor")
+  stockAdjustments StockAdjustmentBatch[] @relation("StockAdjustmentAuthor")
   activities       Activity[]      @relation("ActivityAuthor")
   notifications    Notification[]  @relation("NotificationUser")
+  sentNotifications Notification[] @relation("NotificationFrom")
   contractorBids   ContractorBid[]
   uploadedAttachments ProjectAttachment[] @relation("ProjectAttachmentUploader")
+  transferActsIssued   MaterialTransferAct[] @relation("TransferActIssuer")
+  transferActsAccepted MaterialTransferAct[] @relation("TransferActAcceptor")
+  writeOffRequests     MaterialWriteOffBatch[] @relation("WriteOffRequester")
+  writeOffsDirector    MaterialWriteOffBatch[] @relation("WriteOffDirector")
+  writeOffsAccountant  MaterialWriteOffBatch[] @relation("WriteOffAccountant")
 }
 
 model UserPermission {
@@ -167,6 +206,8 @@ model Lead {
   autoWhatsAppSentAt  DateTime?
   assigneeId          String?
   assignee    User?      @relation("LeadAssignee", fields: [assigneeId], references: [id])
+  clientId    String?
+  client      User?      @relation("LeadClient", fields: [clientId], references: [id])
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
@@ -264,6 +305,10 @@ model Project {
   assignee        User?        @relation("ProjectAssignee", fields: [assigneeId], references: [id])
   winningBidId    String?      @unique
   winningBid      ContractorBid? @relation("WinningBid", fields: [winningBidId], references: [id])
+  materialsApprovalStatus MaterialsApprovalStatus @default(NONE)
+  materialsApprovalNote   String?
+  materialsApprovedAt     DateTime?
+  kitGlobalDiscountPct    Float   @default(0)
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
@@ -271,6 +316,9 @@ model Project {
   invoices        Invoice[]
   activities      Activity[]
   stockMoves      StockMovement[]
+  stockReservations StockReservation[]
+  transferActs      MaterialTransferAct[]
+  writeOffBatches   MaterialWriteOffBatch[]
   bids            ContractorBid[] @relation("ProjectBids")
   attachments     ProjectAttachment[]
 
@@ -309,16 +357,18 @@ model ContractorBid {
 }
 
 model Notification {
-  id        String           @id @default(cuid())
-  userId    String
-  user      User             @relation("NotificationUser", fields: [userId], references: [id])
-  type      NotificationType
-  title     String
-  message   String
-  read      Boolean          @default(false)
-  projectId String?
-  productId String?
-  createdAt DateTime         @default(now())
+  id         String           @id @default(cuid())
+  userId     String
+  user       User             @relation("NotificationUser", fields: [userId], references: [id])
+  fromUserId String?
+  fromUser   User?            @relation("NotificationFrom", fields: [fromUserId], references: [id])
+  type       NotificationType
+  title      String
+  message    String
+  read       Boolean          @default(false)
+  projectId  String?
+  productId  String?
+  createdAt  DateTime         @default(now())
 }
 
 model ProjectMaterial {
@@ -327,8 +377,14 @@ model ProjectMaterial {
   project         Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   productId       String
   product         Product @relation(fields: [productId], references: [id])
-  quantityPlanned Int     @default(0)
-  quantityIssued  Int     @default(0)
+  quantityPlanned    Int     @default(0)
+  quantityIssued     Int     @default(0)
+  quantityAccepted   Int     @default(0)
+  quantityWrittenOff Int     @default(0)
+  unitPrice          Float?
+  purchasePrice   Float?
+  discountPct     Float   @default(0)
+  writeOffItems      MaterialWriteOffBatchItem[]
 
   @@unique([projectId, productId])
 }
@@ -373,7 +429,8 @@ model Product {
   name        String
   category    String?
   unit        String   @default("шт")
-  price       Float    @default(0)
+  price         Float    @default(0)
+  purchasePrice Float    @default(0)
   description String?
   minStock    Int      @default(0)
   kitCategory KitCategory?
@@ -385,7 +442,12 @@ model Product {
 
   stock              StockItem?
   movements          StockMovement[]
+  receiptItems       StockReceiptItem[]
+  stockAdjustmentItems StockAdjustmentItem[]
   projectMats        ProjectMaterial[]
+  stockReservations  StockReservation[]
+  transferActItems   MaterialTransferActItem[]
+  writeOffBatchItems MaterialWriteOffBatchItem[]
   kitItems           DealKitItem[]
   proposalCostLines  ProposalCostLine[]
   leadProposalItems  LeadProposalItem[]
@@ -418,6 +480,86 @@ model StockItem {
   updatedAt DateTime @updatedAt
 }
 
+model StockReservation {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, productId])
+  @@index([productId])
+}
+
+model MaterialTransferAct {
+  id           String                    @id @default(cuid())
+  actNumber    String                    @unique
+  projectId    String
+  project      Project                   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  status       MaterialTransferActStatus @default(PENDING_MANAGER)
+  issuedById   String
+  issuedBy     User                      @relation("TransferActIssuer", fields: [issuedById], references: [id])
+  acceptedById String?
+  acceptedBy   User?                     @relation("TransferActAcceptor", fields: [acceptedById], references: [id])
+  note         String?
+  issuedAt     DateTime                  @default(now())
+  acceptedAt   DateTime?
+  items        MaterialTransferActItem[]
+
+  @@index([projectId])
+  @@index([status])
+}
+
+model MaterialTransferActItem {
+  id        String              @id @default(cuid())
+  actId     String
+  act       MaterialTransferAct @relation(fields: [actId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product             @relation(fields: [productId], references: [id])
+  quantity  Int
+
+  @@index([actId])
+}
+
+model MaterialWriteOffBatch {
+  id                     String                 @id @default(cuid())
+  projectId              String
+  project                Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requestedById          String
+  requestedBy            User                   @relation("WriteOffRequester", fields: [requestedById], references: [id])
+  status                 MaterialWriteOffStatus @default(PENDING_DIRECTOR)
+  note                   String?
+  directorApprovedAt     DateTime?
+  directorApprovedById   String?
+  directorApprovedBy     User?                  @relation("WriteOffDirector", fields: [directorApprovedById], references: [id])
+  accountantApprovedAt DateTime?
+  accountantApprovedById String?
+  accountantApprovedBy   User?                  @relation("WriteOffAccountant", fields: [accountantApprovedById], references: [id])
+  rejectNote             String?
+  rejectedAt             DateTime?
+  createdAt              DateTime               @default(now())
+  items                  MaterialWriteOffBatchItem[]
+
+  @@index([projectId])
+  @@index([status])
+}
+
+model MaterialWriteOffBatchItem {
+  id                String              @id @default(cuid())
+  batchId           String
+  batch             MaterialWriteOffBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  projectMaterialId String
+  projectMaterial   ProjectMaterial     @relation(fields: [projectMaterialId], references: [id])
+  productId         String
+  product           Product             @relation(fields: [productId], references: [id])
+  quantity          Int
+
+  @@index([batchId])
+}
+
 model StockMovement {
   id          String            @id @default(cuid())
   productId   String
@@ -427,9 +569,80 @@ model StockMovement {
   note        String?
   projectId   String?
   project     Project?          @relation(fields: [projectId], references: [id])
+  receiptId   String?
+  receipt     StockReceipt?     @relation(fields: [receiptId], references: [id])
   authorId    String?
   author      User?             @relation("MovementAuthor", fields: [authorId], references: [id])
   createdAt   DateTime          @default(now())
+}
+
+model StockReceipt {
+  id               String   @id @default(cuid())
+  receivedAt       DateTime @default(now())
+  invoiceDate      DateTime
+  invoiceNumber    String
+  seller           String?
+  supplierId       String?
+  supplier         Supplier? @relation(fields: [supplierId], references: [id])
+  priceIncludesVat Boolean  @default(true)
+  authorId         String?
+  author           User?    @relation("StockReceiptAuthor", fields: [authorId], references: [id])
+  createdAt        DateTime @default(now())
+  items            StockReceiptItem[]
+  movements        StockMovement[]
+
+  @@index([invoiceNumber])
+  @@index([receivedAt])
+  @@index([supplierId])
+}
+
+model Supplier {
+  id        String   @id @default(cuid())
+  name      String
+  bin       String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  receipts  StockReceipt[]
+
+  @@index([name])
+}
+
+model StockReceiptItem {
+  id        String       @id @default(cuid())
+  receiptId String
+  receipt   StockReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product      @relation(fields: [productId], references: [id])
+  quantity  Int
+  unitPrice Float        @default(0)
+
+  @@index([receiptId])
+}
+
+model StockAdjustmentBatch {
+  id         String                @id @default(cuid())
+  status     StockAdjustmentStatus @default(PENDING_DIRECTOR)
+  note       String?
+  authorId   String?
+  author     User?                 @relation("StockAdjustmentAuthor", fields: [authorId], references: [id])
+  approvedAt DateTime?
+  createdAt  DateTime              @default(now())
+  items      StockAdjustmentItem[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model StockAdjustmentItem {
+  id             String             @id @default(cuid())
+  batchId        String
+  batch          StockAdjustmentBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  productId      String
+  product        Product              @relation(fields: [productId], references: [id])
+  quantityBefore Int
+  quantityAfter  Int
+
+  @@index([batchId])
 }
 
 model OneCSyncLog {

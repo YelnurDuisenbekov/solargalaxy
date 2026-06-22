@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { KZ_CITIES, CITY_OTHER, filterKzCities } from '../../utils/leadValidation';
+import { isCityEmpty, publicInputClass } from '../../utils/publicFormInput';
+import { focusSelectAll } from '../../utils/formFieldFocus';
 import FormField from './FormField';
 import '../lead/PublicLeadForm.css';
 
@@ -10,6 +12,7 @@ export default function CityCombobox({
   onCityCustom,
   error,
   customError,
+  publicStyle = false,
 }) {
   const listId = useId();
   const wrapRef = useRef(null);
@@ -52,20 +55,26 @@ export default function CityCombobox({
     else if (citySelect && citySelect !== CITY_OTHER) onCitySelect('');
   };
 
+  const cityEmpty = isCityEmpty(citySelect, cityCustom, query);
+  const ic = (value) => (publicStyle ? publicInputClass(value) : 'input');
+  const cityClass = publicStyle
+    ? publicInputClass(cityEmpty ? '' : (citySelect || query))
+    : 'input';
+
   return (
     <>
-      <FormField label="Город *" error={error}>
+      <FormField label="Город *" error={error} className={publicStyle ? 'public-lead-form__field--span2' : undefined}>
         <div className="city-combobox" ref={wrapRef}>
           <input
-            className="input"
+            className={cityClass}
             role="combobox"
             aria-expanded={open}
             aria-controls={listId}
             aria-autocomplete="list"
             placeholder="Начните вводить город…"
             value={query}
+            onFocus={(e) => { setOpen(true); if (publicStyle) focusSelectAll(e); }}
             onChange={onInputChange}
-            onFocus={() => setOpen(true)}
             autoComplete="off"
           />
           {open && (filtered.length > 0 || showOther) && (
@@ -106,9 +115,10 @@ export default function CityCombobox({
       {citySelect === CITY_OTHER && (
         <FormField label="Укажите город *" error={customError || error}>
           <input
-            className="input"
+            className={ic(cityCustom)}
             placeholder="Название населённого пункта"
             value={cityCustom}
+            onFocus={publicStyle ? focusSelectAll : undefined}
             onChange={(e) => onCityCustom(e.target.value)}
           />
         </FormField>

@@ -1,3 +1,6 @@
+import { flashSuccess } from '../lib/flashBus';
+import { getMutationFlashMessage } from '../lib/mutationFlash';
+
 const API = '/api';
 
 function getToken() {
@@ -25,6 +28,13 @@ export async function api(path, options = {}) {
     if (data.code) err.code = data.code;
     throw err;
   }
+
+  const method = (options.method || 'GET').toUpperCase();
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+    const flashMsg = getMutationFlashMessage(method, path, data);
+    if (flashMsg) flashSuccess(flashMsg);
+  }
+
   return data;
 }
 
@@ -58,6 +68,7 @@ export const crmApi = {
   markAutoWhatsAppSent: (id) => api(`/crm/leads/${id}/auto-whatsapp-sent`, { method: 'POST' }),
   sendLeadWhatsApp: (id, body) => api(`/crm/leads/${id}/whatsapp`, { method: 'POST', body: JSON.stringify(body || {}) }),
   claimLead: (id) => api(`/crm/leads/${id}/claim`, { method: 'POST' }),
+  reassignLead: (id, assigneeId) => api(`/crm/leads/${id}/reassign`, { method: 'POST', body: JSON.stringify({ assigneeId }) }),
   convertLead: (id, body) => api(`/crm/leads/${id}/convert`, { method: 'POST', body: JSON.stringify(body || {}) }),
   getLeadProposal: (id) => api(`/crm/leads/${id}/proposal`),
   saveLeadProposal: (id, body) => api(`/crm/leads/${id}/proposal`, { method: 'PUT', body: JSON.stringify(body) }),
@@ -88,17 +99,27 @@ export async function downloadFile(path) {
 
 export const erpApi = {
   summary: () => api('/erp/summary'),
-  projects: () => api('/erp/projects'),
+  projects: (opts) => api(`/erp/projects${opts?.issuable ? '?issuable=1' : ''}`),
   project: (id) => api(`/erp/projects/${id}`),
   createProject: (body) => api('/erp/projects', { method: 'POST', body: JSON.stringify(body) }),
   updateProject: (id, body) => api(`/erp/projects/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  reassignProject: (id, assigneeId) => api(`/erp/projects/${id}/reassign`, { method: 'POST', body: JSON.stringify({ assigneeId }) }),
   createFromDeal: (dealId) => api(`/erp/projects/from-deal/${dealId}`, { method: 'POST' }),
   addMaterial: (projectId, body) => api(`/erp/projects/${projectId}/materials`, { method: 'POST', body: JSON.stringify(body) }),
   updateMaterial: (projectId, materialId, body) => api(`/erp/projects/${projectId}/materials/${materialId}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  approveMaterials: (projectId) => api(`/erp/projects/${projectId}/materials/approve`, { method: 'POST' }),
+  returnMaterials: (projectId, note) => api(`/erp/projects/${projectId}/materials/return-to-manager`, { method: 'POST', body: JSON.stringify({ note }) }),
+  saveMaterialsBulk: (projectId, body) => api(`/erp/projects/${projectId}/materials/bulk`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteMaterial: (projectId, materialId) => api(`/erp/projects/${projectId}/materials/${materialId}`, { method: 'DELETE' }),
   issueMaterial: (projectId, body) => api(`/erp/projects/${projectId}/issue`, { method: 'POST', body: JSON.stringify(body) }),
+  createTransferAct: (projectId, body) => api(`/erp/projects/${projectId}/transfer-acts`, { method: 'POST', body: JSON.stringify(body) }),
+  transferActs: (projectId) => api(`/erp/projects/${projectId}/transfer-acts`),
+  acceptTransferAct: (actId) => api(`/erp/transfer-acts/${actId}/accept`, { method: 'POST' }),
+  writeOffMaterials: (projectId, note) => api(`/erp/projects/${projectId}/materials/write-off`, { method: 'POST', body: JSON.stringify({ note: note || '' }) }),
   openAuction: (projectId, body) => api(`/erp/projects/${projectId}/auction`, { method: 'POST', body: JSON.stringify(body || {}) }),
   auctionBrief: (projectId) => api(`/erp/projects/${projectId}/auction-brief`),
+  acceptBid: (projectId, bidId) => api(`/erp/projects/${projectId}/accept-bid`, { method: 'POST', body: JSON.stringify({ bidId }) }),
+  closeAuction: (projectId) => api(`/erp/projects/${projectId}/close-auction`, { method: 'POST' }),
   acceptLowestBid: (projectId) => api(`/erp/projects/${projectId}/accept-lowest-bid`, { method: 'POST' }),
   auctions: (status = 'open') => api(`/erp/auctions?status=${status}`),
   auctionResults: () => api('/erp/auctions/results'),
@@ -114,9 +135,10 @@ export const proposalsApi = {
 
 export const operationsApi = {
   notifications: () => api('/operations/notifications'),
+  allNotifications: () => api('/operations/notifications/all'),
   unreadCount: () => api('/operations/notifications/unread-count'),
-  markRead: (id) => api(`/operations/notifications/${id}/read`, { method: 'PATCH' }),
-  markAllRead: () => api('/operations/notifications/read-all', { method: 'PATCH' }),
+  markRead: (id, scope) => api(`/operations/notifications/${id}/read${scope === 'all' ? '?scope=all' : ''}`, { method: 'PATCH' }),
+  markAllRead: (scope) => api(`/operations/notifications/read-all${scope === 'all' ? '?scope=all' : ''}`, { method: 'PATCH' }),
   auctions: () => api('/operations/auctions'),
   auctionHistory: () => api('/operations/auctions/history'),
   myBids: () => api('/operations/my-bids'),
@@ -143,10 +165,31 @@ export const portalApi = {
 
 export const warehouseApi = {
   products: () => api('/warehouse/products'),
+  productReservations: (productId) => api(`/warehouse/products/${productId}/reservations`),
   createProduct: (body) => api('/warehouse/products', { method: 'POST', body: JSON.stringify(body) }),
+  suppliers: () => api('/warehouse/suppliers'),
+  createSupplier: (body) => api('/warehouse/suppliers', { method: 'POST', body: JSON.stringify(body) }),
   movements: () => api('/warehouse/movements'),
   createMovement: (body) => api('/warehouse/movements', { method: 'POST', body: JSON.stringify(body) }),
+  updateStockBulk: (body) => api('/warehouse/stock/bulk', { method: 'PUT', body: JSON.stringify(body) }),
+  stockAdjustments: (status) => api(`/warehouse/stock/adjustments${status ? `?status=${encodeURIComponent(status)}` : ''}`),
+  approveStockAdjustment: (id) => api(`/warehouse/stock/adjustments/${id}/approve`, { method: 'POST' }),
+  rejectStockAdjustment: (id, body) => api(`/warehouse/stock/adjustments/${id}/reject`, { method: 'POST', body: JSON.stringify(body || {}) }),
+  receipts: (supplierId) => api(`/warehouse/receipts${supplierId ? `?supplierId=${encodeURIComponent(supplierId)}` : ''}`),
+  createReceipt: (body) => api('/warehouse/receipts', { method: 'POST', body: JSON.stringify(body) }),
+  updateReceipt: (id, body) => api(`/warehouse/receipts/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   summary: () => api('/warehouse/summary'),
+  issuableProjects: () => api('/warehouse/issuable-projects'),
+  issuableProject: (id) => api(`/warehouse/issuable-projects/${id}`),
+  createProjectTransferAct: (projectId, body) => api(`/warehouse/issuable-projects/${projectId}/transfer-acts`, { method: 'POST', body: JSON.stringify(body) }),
+  updatePricing: (body) => api('/warehouse/products/pricing', { method: 'PUT', body: JSON.stringify(body) }),
+  transferActs: () => api('/warehouse/transfer-acts'),
+  acceptedInventory: () => api('/warehouse/accepted-inventory'),
+  writeOffs: (status) => api(`/warehouse/write-offs${status ? `?status=${encodeURIComponent(status)}` : ''}`),
+  approveWriteOffDirector: (id) => api(`/warehouse/write-offs/${id}/approve-director`, { method: 'POST' }),
+  approveWriteOffAccountant: (id) => api(`/warehouse/write-offs/${id}/approve-accountant`, { method: 'POST' }),
+  rejectWriteOff: (id, note) => api(`/warehouse/write-offs/${id}/reject`, { method: 'POST', body: JSON.stringify({ note: note || '' }) }),
+  acceptTransferAct: (id) => api(`/warehouse/transfer-acts/${id}/accept`, { method: 'POST' }),
 };
 
 export const whatsappApi = {

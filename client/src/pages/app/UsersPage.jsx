@@ -24,6 +24,7 @@ export default function UsersPage() {
   const [permUser, setPermUser] = useState(null);
   const [selectedPerms, setSelectedPerms] = useState([]);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   const load = () => usersApi.list().then(setUsers);
 
@@ -47,9 +48,15 @@ export default function UsersPage() {
   const submit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
     try {
-      await usersApi.create(form);
+      const created = await usersApi.create(form);
       setForm({ login: '', password: '', fullName: '', phone: '', company: '', role: 'MANAGER' });
+      if (form.role === 'CLIENT' && created.credentialsDelivery?.channels?.includes('whatsapp')) {
+        setSuccess('Клиент создан. Логин и пароль отправлены в WhatsApp.');
+      } else if (form.role === 'CLIENT' && form.phone) {
+        setSuccess('Клиент создан. WhatsApp не отправлен — передайте логин и пароль вручную.');
+      }
       load();
     } catch (err) {
       setError(err.message);
@@ -122,6 +129,7 @@ export default function UsersPage() {
       )}
 
       {error && <p className="error-msg">{error}</p>}
+      {success && <p className="login-page__success" style={{ marginBottom: 16 }}>{success}</p>}
 
       <Reveal delay={0.1}>
         <div className="card app-section-card">

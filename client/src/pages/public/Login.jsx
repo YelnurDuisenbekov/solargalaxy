@@ -7,9 +7,12 @@ import './Login.css';
 
 function deliveryMessage(credentialsDelivery) {
   if (credentialsDelivery?.channels?.includes('whatsapp')) {
-    return 'Данные для входа отправлены в WhatsApp.';
+    return 'Регистрация успешна. Логин и пароль отправлены в WhatsApp.';
   }
-  return 'Регистрация успешна. Входите по номеру телефона и паролю.';
+  if (credentialsDelivery?.whatsappError === 'not_configured') {
+    return 'Регистрация успешна. WhatsApp не настроен — сохраните пароль, он больше не отобразится.';
+  }
+  return 'Регистрация успешна. Не удалось отправить WhatsApp — войдите по телефону и паролю, которые указали при регистрации.';
 }
 
 export default function Login() {

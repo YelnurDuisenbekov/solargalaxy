@@ -576,62 +576,6 @@ function LeadDetail({ lead }) {
 
         )}
 
-
-
-        {lead.proposalAmount > 0 && (
-
-          <div className="app-portal-detail__block">
-
-            <h3 className="app-portal-detail__subtitle">Коммерческое предложение</h3>
-
-            <p><strong>Сумма:</strong> {formatMoney(lead.proposalAmount)}</p>
-
-          </div>
-
-        )}
-
-
-
-        {lead.project && (
-
-          <div className="app-portal-detail__block">
-
-            <h3 className="app-portal-detail__subtitle">Проект по заявке</h3>
-
-            <p>
-
-              {lead.project.projectNumber && <span style={{ marginRight: 8, color: 'var(--text-muted)' }}>{lead.project.projectNumber}</span>}
-
-              {lead.project.title}
-
-              {' '}<span className={`badge ${phaseBadge[lead.project.phase]}`}>{PROJECT_PHASE[lead.project.phase]}</span>
-
-            </p>
-
-          </div>
-
-        )}
-
-
-
-        {lead.deal && !lead.project && (
-
-          <div className="app-portal-detail__block">
-
-            <h3 className="app-portal-detail__subtitle">Сделка</h3>
-
-            <p>
-
-              <strong>{lead.deal.title}</strong> — {formatMoney(lead.deal.amount)}
-
-              {' '}<span className={`badge ${dealBadge[lead.deal.status]}`}>{DEAL_STATUS[lead.deal.status]}</span>
-
-            </p>
-
-          </div>
-
-        )}
-
       </div>
 
     </div>
@@ -718,11 +662,15 @@ export default function ClientPortal() {
 
       setTab('leads');
 
+      setSelectedId(dashboard.leads[0].id);
+
       openItem('leads', dashboard.leads[0].id);
 
     } else if (dashboard.projects.length) {
 
       setTab('projects');
+
+      setSelectedId(dashboard.projects[0].id);
 
       openItem('projects', dashboard.projects[0].id);
 
@@ -730,11 +678,15 @@ export default function ClientPortal() {
 
       setTab('deals');
 
+      setSelectedId(dashboard.deals[0].id);
+
       openItem('deals', dashboard.deals[0].id);
 
     } else if (dashboard.invoices.length) {
 
       setTab('invoices');
+
+      setSelectedId(dashboard.invoices[0].id);
 
       openItem('invoices', dashboard.invoices[0].id);
 
@@ -1070,7 +1022,9 @@ export default function ClientPortal() {
 
                 <p className="app-page-desc" style={{ margin: 0 }}>
 
-                  {tab === 'leads' && 'Заявок пока нет. Оставьте заявку на сайте — она появится здесь по номеру телефона из вашего профиля.'}
+                  {tab === 'leads' && (user?.phone
+                    ? 'Активных заявок пока нет. Новая заявка с сайта появится здесь, пока менеджер её обрабатывает. Закрытые — во вкладках «Проекты» и «Сделки».'
+                    : 'Заявок пока нет. Укажите телефон в профиле и оставьте заявку на сайте с этим номером.')}
 
                   {tab === 'projects' && 'У вас пока нет проектов. Оставьте заявку на сайте — они появятся здесь по номеру телефона.'}
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { crmApi, erpApi } from '../../api';
+import { crmApi, erpApi, usersApi } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import { Reveal } from '../../components/motion/ScrollReveal';
 import { formatNum, formatDateTime, formatDuration, formatMoney } from '../../utils/format';
@@ -65,12 +65,14 @@ function Modal({ title, onClose, children }) {
 }
 
 export default function CrmPage() {
-  const { user } = useAuth();
+  const { user, isAdmin, canClaimLeads } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState('leads');
   const [leadSubTab, setLeadSubTab] = useState('active');
   const [leads, setLeads] = useState([]);
   const [activities, setActivities] = useState([]);
+  const [managers, setManagers] = useState([]);
+  const [reassigningId, setReassigningId] = useState(null);
   const [modal, setModal] = useState(null);
   const [proposalLead, setProposalLead] = useState(null);
   const [surveyLead, setSurveyLead] = useState(null);
@@ -85,9 +87,22 @@ export default function CrmPage() {
     load();
   }, []);
 
+  useEffect(() => {
+    if (isAdmin) usersApi.list('MANAGER').then(setManagers).catch(() => {});
+  }, [isAdmin]);
+
   const handleError = (e) => setError(e.message);
   const claimLead = async (id) => {
     try { await crmApi.claimLead(id); load(); } catch (e) { handleError(e); }
+  };
+  const reassignLead = async (leadId, assigneeId) => {
+    if (!assigneeId) return;
+    setReassigningId(leadId);
+    try {
+      await crmApi.reassignLead(leadId, assigneeId);
+      load();
+    } catch (e) { handleError(e); }
+    finally { setReassigningId(null); }
   };
   const updateLeadStatus = async (lead, status) => {
     if (status === 'SURVEY') {
@@ -172,7 +187,21 @@ export default function CrmPage() {
         {l.contactedAt ? formatDuration(l.createdAt, l.contactedAt) : '—'}
       </td>
       <td><span className={`badge ${leadBadge[l.status]}`}>{LEAD_STATUS[l.status]}</span></td>
-      <td>{l.assignee?.fullName || '—'}</td>
+      <td>
+        {isAdmin && managers.length ? (
+          <select
+            className="input app-lead-actions__status"
+            value={l.assigneeId || ''}
+            disabled={reassigningId === l.id}
+            onChange={(e) => reassignLead(l.id, e.target.value)}
+          >
+            <option value="">— не назначен —</option>
+            {managers.map((m) => (
+              <option key={m.id} value={m.id}>{m.fullName}</option>
+            ))}
+          </select>
+        ) : (l.assignee?.fullName || '—')}
+      </td>
       <td>
         <div className="app-lead-actions">
           {leadSubTab === 'active' && (
@@ -183,7 +212,7 @@ export default function CrmPage() {
                   <button type="button" className="btn btn--ghost app-lead-actions__kp" onClick={() => setProposalLead(l)}>КП</button>
                 )}
               </div>
-              {!l.assignee && (
+              {!l.assignee && canClaimLeads && (
                 <button type="button" className="btn btn--dark app-lead-actions__claim" onClick={() => claimLead(l.id)}>Забрать</button>
               )}
             </>

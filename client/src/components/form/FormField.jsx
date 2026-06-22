@@ -1,6 +1,6 @@
-export default function FormField({ label, error, hint, children }) {
+export default function FormField({ label, error, hint, children, className = '' }) {
   return (
-    <div className={`app-field${error ? ' app-field--error' : ''}`}>
+    <div className={`app-field${error ? ' app-field--error' : ''}${className ? ` ${className}` : ''}`}>
       {label && <label>{label}</label>}
       {children}
       {hint && !error && <p className="app-field__hint">{hint}</p>}

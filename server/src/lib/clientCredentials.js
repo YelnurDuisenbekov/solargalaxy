@@ -1,34 +1,45 @@
 import { sendWhatsAppText } from './whatsappApi.js';
 
-function credentialsMessage({ fullName, phone, password }) {
-  const site = process.env.PUBLIC_SITE_URL?.trim() || 'https://solargalaxy.kz';
+function loginPageUrl() {
+  const base = process.env.CLIENT_URL?.trim() || process.env.PUBLIC_SITE_URL?.trim() || 'http://localhost:5173';
+  return `${base.replace(/\/$/, '')}/login`;
+}
+
+function credentialsMessage({ fullName, phone, login, password }) {
+  const loginHint = login && login !== phone ? login : phone;
 
   return [
     `Здравствуйте, ${fullName}!`,
     '',
     'Вы зарегистрированы в личном кабинете Solar Galaxy.',
     '',
-    `Телефон для входа: ${phone}`,
+    `Логин: ${loginHint}`,
     `Пароль: ${password}`,
     '',
-    `Вход: ${site}/login`,
+    `Вход: ${loginPageUrl()}`,
     '',
-    'Сохраните эти данные. В кабинете вы увидите свои заявки, проекты и расчёты.',
-  ].join('\n');
+    'Сохраните эти данные. В кабинете — ваши заявки, проекты и расчёты.',
+    phone && loginHint !== phone ? `Также можно войти по телефону: ${phone}` : '',
+  ].filter(Boolean).join('\n');
 }
 
-/** Отправить телефон и пароль клиенту в WhatsApp. */
-export async function sendClientCredentials({ fullName, phone, password }) {
-  const text = credentialsMessage({ fullName, phone, password });
-  const channels = [];
-
-  if (phone) {
-    const wa = await sendWhatsAppText(phone, text);
-    if (wa.sent) channels.push('whatsapp');
+/** Отправить логин и пароль клиенту в WhatsApp. */
+export async function sendClientCredentials({ fullName, phone, login, password }) {
+  if (!phone) {
+    return { sent: false, channels: [], whatsappError: 'no_phone' };
   }
 
+  const text = credentialsMessage({ fullName, phone, login, password });
+  const wa = await sendWhatsAppText(phone, text);
+
+  if (wa.sent) {
+    return { sent: true, channels: ['whatsapp'], messageId: wa.messageId };
+  }
+
+  console.warn('[client-credentials] WhatsApp не отправлен:', wa.error || wa.reason, phone);
   return {
-    sent: channels.length > 0,
-    channels,
+    sent: false,
+    channels: [],
+    whatsappError: wa.error || wa.reason || 'send_failed',
   };
 }

@@ -15,7 +15,8 @@
     "db:push": "npm run db:push --workspace=server",
     "db:seed": "npm run db:seed --workspace=server",
     "whatsapp:setup": "npm run whatsapp:setup --workspace=server",
-    "green:setup": "npm run green:setup --workspace=server"
+    "green:setup": "npm run green:setup --workspace=server",
+    "green:verify": "npm run green:verify --workspace=server"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

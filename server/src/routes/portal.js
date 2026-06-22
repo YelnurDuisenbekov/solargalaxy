@@ -4,9 +4,9 @@ import prisma from '../lib/prisma.js';
 
 import { authRequired, requireRoles } from '../lib/auth.js';
 
-import { normalizePhone, leadPhoneDbFilter } from '../lib/phone.js';
+import { normalizePhone } from '../lib/phone.js';
 
-import { linkProjectsToClient } from '../lib/projectIdentity.js';
+import { linkProjectsToClient, linkLeadsToClient } from '../lib/projectIdentity.js';
 
 
 
@@ -36,7 +36,10 @@ async function clientContext(req) {
 
   const phone = normalizePhone(phoneRaw);
 
-  await linkProjectsToClient(prisma, clientId, phoneRaw);
+  await Promise.all([
+    linkProjectsToClient(prisma, clientId, phoneRaw),
+    linkLeadsToClient(prisma, clientId, phoneRaw),
+  ]);
 
   const projectWhere = phone
 
@@ -76,26 +79,17 @@ const leadListSelect = {
 
 
 
-async function clientLeads(phoneRaw) {
+async function clientLeads(clientId) {
+  if (!clientId) return [];
 
-  const phoneNorm = normalizePhone(phoneRaw);
-
-  const filter = leadPhoneDbFilter(phoneRaw);
-
-  if (!phoneNorm || !filter) return [];
-
-  const candidates = await prisma.lead.findMany({
-
-    where: filter,
-
+  return prisma.lead.findMany({
+    where: {
+      clientId,
+      status: { notIn: ['CONVERTED', 'LOST'] },
+    },
     select: leadListSelect,
-
     orderBy: { createdAt: 'desc' },
-
   });
-
-  return candidates.filter((l) => normalizePhone(l.phone) === phoneNorm);
-
 }
 
 
@@ -198,7 +192,7 @@ router.get('/dashboard', requireRoles('CLIENT'), async (req, res) => {
 
     }),
 
-    clientLeads(phoneRaw),
+    clientLeads(clientId),
 
   ]);
 
@@ -364,15 +358,19 @@ router.get('/invoices/:id', requireRoles('CLIENT'), async (req, res) => {
 
 router.get('/leads/:id', requireRoles('CLIENT'), async (req, res) => {
 
-  const { phone: phoneNorm } = await clientContext(req);
+  const { clientId, phone: phoneNorm } = await clientContext(req);
 
-  if (!phoneNorm) return res.status(404).json({ error: 'Заявка не найдена' });
+  if (!clientId) return res.status(404).json({ error: 'Заявка не найдена' });
 
 
 
-  const full = await prisma.lead.findUnique({
+  const full = await prisma.lead.findFirst({
 
-    where: { id: req.params.id },
+    where: {
+      id: req.params.id,
+      clientId,
+      status: { notIn: ['CONVERTED', 'LOST'] },
+    },
 
     select: {
 
@@ -382,26 +380,17 @@ router.get('/leads/:id', requireRoles('CLIENT'), async (req, res) => {
 
       notes: true,
 
-      proposalAmount: true,
-
       assignee: userBrief,
-
-      project: { select: { id: true, projectNumber: true, title: true, phase: true } },
-
-      deal: { select: { id: true, title: true, amount: true, status: true } },
 
     },
 
   });
 
-  if (!full || normalizePhone(full.phone) !== phoneNorm) {
-
+  if (!full) {
     return res.status(404).json({ error: 'Заявка не найдена' });
-
   }
 
   res.json(full);
-
 });
 
 

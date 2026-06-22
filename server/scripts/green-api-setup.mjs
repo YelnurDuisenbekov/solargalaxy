@@ -25,6 +25,7 @@ function parseArgs() {
   for (let i = 0; i < args.length; i += 1) {
     if (args[i] === '--id') out.idInstance = args[i + 1];
     if (args[i] === '--token') out.apiToken = args[i + 1];
+    if (args[i] === '--url') out.apiUrl = args[i + 1];
   }
   return out;
 }
@@ -60,16 +61,20 @@ async function main() {
   const cli = parseArgs();
   let idInstance = cli.idInstance || process.env.GREEN_API_ID_INSTANCE;
   let apiToken = cli.apiToken || process.env.GREEN_API_TOKEN;
+  let apiUrl = cli.apiUrl || process.env.GREEN_API_URL?.trim() || 'https://api.green-api.com';
 
   if (!idInstance) idInstance = await ask('\nidInstance: ');
   if (!apiToken) apiToken = await ask('apiTokenInstance: ');
+  if (!cli.apiUrl && !process.env.GREEN_API_URL) {
+    const customUrl = await ask(`apiUrl [${apiUrl}]: `);
+    if (customUrl) apiUrl = customUrl.replace(/\/$/, '');
+  }
 
   if (!idInstance || !apiToken) {
     console.error('idInstance и apiToken обязательны');
     process.exit(1);
   }
 
-  const apiUrl = 'https://api.green-api.com';
   const stateRes = await fetch(`${apiUrl}/waInstance${idInstance}/getStateInstance/${apiToken}`);
   const state = await stateRes.json().catch(() => ({}));
 

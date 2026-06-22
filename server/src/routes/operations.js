@@ -6,13 +6,14 @@ import { PERMISSIONS, hasAnyPermission } from '../lib/permissions.js';
 import { projectAuctionBrief, projectAuctionResultBrief } from '../lib/projectAuction.js';
 import { readProjectAttachment } from '../lib/projectFiles.js';
 import { CONTRACTOR_ROLES } from '../lib/roles.js';
+import { notificationInclude } from '../lib/notifyDirectors.js';
 
 const router = Router();
 router.use(authRequired, attachUser);
 
 const userSelect = { id: true, fullName: true, email: true, company: true };
 
-const SUPPLY_STAFF = [
+const NOTIFICATION_ACCESS = [
   PERMISSIONS.SUPPLY_VIEW,
   PERMISSIONS.ADMIN_FULL,
   PERMISSIONS.CRM_VIEW,
@@ -22,34 +23,32 @@ const SUPPLY_STAFF = [
   PERMISSIONS.WAREHOUSE_VIEW,
 ];
 
-function canViewAllSupplyNotifications(permissions) {
-  return hasAnyPermission(
-    permissions,
-    PERMISSIONS.ADMIN_FULL,
-    PERMISSIONS.CRM_VIEW_ALL,
-    PERMISSIONS.ERP_VIEW_ALL,
-  );
+function canViewAllNotifications(user) {
+  return user.role === 'DIRECTOR' || user.role === 'ADMIN';
 }
 
-function supplyNotificationsWhere(req) {
-  if (canViewAllSupplyNotifications(req.permissions)) {
-    return { type: { in: ['PURCHASE_REQUIRED', 'LOW_STOCK', 'PROJECT_UPDATE'] } };
-  }
-  return { userId: req.user.id };
-}
-
-router.get('/notifications', requirePermission(...SUPPLY_STAFF), async (req, res) => {
+router.get('/notifications', requirePermission(...NOTIFICATION_ACCESS), async (req, res) => {
   const notifications = await prisma.notification.findMany({
-    where: supplyNotificationsWhere(req),
+    where: { userId: req.user.id },
+    include: notificationInclude,
     orderBy: { createdAt: 'desc' },
     take: 100,
   });
   res.json(notifications);
 });
 
-router.patch('/notifications/:id/read', requirePermission(...SUPPLY_STAFF), async (req, res) => {
+router.get('/notifications/all', requireRoles('DIRECTOR', 'ADMIN'), async (req, res) => {
+  const notifications = await prisma.notification.findMany({
+    include: notificationInclude,
+    orderBy: { createdAt: 'desc' },
+    take: 200,
+  });
+  res.json(notifications);
+});
+
+router.patch('/notifications/:id/read', requirePermission(...NOTIFICATION_ACCESS), async (req, res) => {
   try {
-    const where = canViewAllSupplyNotifications(req.permissions)
+    const where = canViewAllNotifications(req.user) && req.query.scope === 'all'
       ? { id: req.params.id }
       : { id: req.params.id, userId: req.user.id };
     const n = await prisma.notification.update({
@@ -63,11 +62,10 @@ router.patch('/notifications/:id/read', requirePermission(...SUPPLY_STAFF), asyn
   }
 });
 
-router.patch('/notifications/read-all', requirePermission(...SUPPLY_STAFF), async (req, res) => {
-  const where = {
-    ...supplyNotificationsWhere(req),
-    read: false,
-  };
+router.patch('/notifications/read-all', requirePermission(...NOTIFICATION_ACCESS), async (req, res) => {
+  const where = canViewAllNotifications(req.user) && req.query.scope === 'all'
+    ? { read: false }
+    : { userId: req.user.id, read: false };
   await prisma.notification.updateMany({
     where,
     data: { read: true },
@@ -75,9 +73,9 @@ router.patch('/notifications/read-all', requirePermission(...SUPPLY_STAFF), asyn
   res.json({ ok: true });
 });
 
-router.get('/notifications/unread-count', requirePermission(...SUPPLY_STAFF), async (req, res) => {
+router.get('/notifications/unread-count', requirePermission(...NOTIFICATION_ACCESS), async (req, res) => {
   const count = await prisma.notification.count({
-    where: { ...supplyNotificationsWhere(req), read: false },
+    where: { userId: req.user.id, read: false },
   });
   res.json({ count });
 });

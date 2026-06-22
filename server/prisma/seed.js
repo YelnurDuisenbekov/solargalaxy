@@ -34,6 +34,9 @@ async function main() {
   await prisma.activity.deleteMany();
   await prisma.invoice.deleteMany();
   await prisma.projectMaterial.deleteMany();
+  await prisma.stockReservation.deleteMany();
+  await prisma.materialTransferActItem.deleteMany();
+  await prisma.materialTransferAct.deleteMany();
   await prisma.stockMovement.deleteMany();
   await prisma.stockItem.deleteMany();
   await prisma.product.deleteMany();
@@ -118,14 +121,14 @@ async function main() {
   });
 
   const products = [
-    { sku: 'LONGI-650', name: 'Longi Hi-MO 650W', category: 'Панели', price: 48000, qty: 120, kitCategory: 'PANEL', minStock: 20, powerW: 650 },
-    { sku: 'DEYE-5K', name: 'Deye SUN-5K-G03', category: 'Инверторы', price: 185000, qty: 15, kitCategory: 'INVERTER', minStock: 3, capacityKw: 5 },
-    { sku: 'DEYE-10K', name: 'Deye SUN-10K-G03', category: 'Инверторы', price: 320000, qty: 8, kitCategory: 'INVERTER', minStock: 2, capacityKw: 10 },
-    { sku: 'DEYE-20K', name: 'Deye SUN-20K-G03', category: 'Инверторы', price: 580000, qty: 4, kitCategory: 'INVERTER', minStock: 1, capacityKw: 20 },
-    { sku: 'PYL-US3K', name: 'Pylontech US3000C', category: 'АКБ', price: 380000, qty: 8, kitCategory: 'BATTERY', minStock: 2, capacityKwh: 3.5 },
-    { sku: 'MOUNT-KIT', name: 'Опорная конструкция (за 1 панель)', category: 'Монтаж', price: 18000, qty: 999, kitCategory: 'MOUNTING', minStock: 0 },
-    { sku: 'COMM-STD', name: 'Пусконаладка', category: 'Услуги', price: 150000, qty: 999, kitCategory: 'COMMISSIONING', minStock: 0 },
-    { sku: 'CABLE-SET', name: 'Кабельный комплект MC4', category: 'Кабели', price: 45000, qty: 30, kitCategory: 'CABLE', minStock: 5 },
+    { sku: 'LONGI-650', name: 'Longi Hi-MO 650W', category: 'Панели', price: 125000, purchasePrice: 100000, qty: 120, kitCategory: 'PANEL', minStock: 20, powerW: 650 },
+    { sku: 'DEYE-5K', name: 'Deye SUN-5K-G03', category: 'Инверторы', price: 125000, purchasePrice: 100000, qty: 15, kitCategory: 'INVERTER', minStock: 3, capacityKw: 5 },
+    { sku: 'DEYE-10K', name: 'Deye SUN-10K-G03', category: 'Инверторы', price: 125000, purchasePrice: 100000, qty: 8, kitCategory: 'INVERTER', minStock: 2, capacityKw: 10 },
+    { sku: 'DEYE-20K', name: 'Deye SUN-20K-G03', category: 'Инверторы', price: 125000, purchasePrice: 100000, qty: 4, kitCategory: 'INVERTER', minStock: 1, capacityKw: 20 },
+    { sku: 'PYL-US3K', name: 'Pylontech US3000C', category: 'АКБ', price: 125000, purchasePrice: 100000, qty: 8, kitCategory: 'BATTERY', minStock: 2, capacityKwh: 3.5 },
+    { sku: 'MOUNT-KIT', name: 'Опорная конструкция (за 1 панель)', category: 'Монтаж', price: 125000, purchasePrice: 100000, qty: 999, kitCategory: 'MOUNTING', minStock: 0 },
+    { sku: 'COMM-STD', name: 'Пусконаладка', category: 'Услуги', price: 125000, purchasePrice: 100000, qty: 999, kitCategory: 'COMMISSIONING', minStock: 0 },
+    { sku: 'CABLE-SET', name: 'Кабельный комплект MC4', category: 'Кабели', price: 125000, purchasePrice: 100000, qty: 30, kitCategory: 'CABLE', minStock: 5 },
   ];
 
   const createdProducts = {};

@@ -13,6 +13,7 @@ import ProposalPage from './pages/app/ProposalPage';
 import ProjectsPage from './pages/app/ProjectsPage';
 import FinancePage from './pages/app/FinancePage';
 import WarehousePage from './pages/app/WarehousePage';
+import PricingPage from './pages/app/PricingPage';
 import UsersPage from './pages/app/UsersPage';
 import ProfilePage from './pages/app/ProfilePage';
 import ClientPortal from './pages/app/ClientPortal';
@@ -20,6 +21,7 @@ import SupplyPage from './pages/app/SupplyPage';
 import WhatsAppPage from './pages/app/WhatsAppPage';
 import ContractorPage from './pages/app/ContractorPage';
 import AuctionsRoute from './pages/app/AuctionsRoute';
+import { WarehouseRouteGuard } from './components/WarehouseRouteGuard';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -39,13 +41,14 @@ export default function App() {
         <Route path="login" element={<Login />} />
       </Route>
 
-      <Route path="/app" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+      <Route path="/app" element={<ProtectedRoute><WarehouseRouteGuard><AppLayout /></WarehouseRouteGuard></ProtectedRoute>}>
         <Route index element={<Dashboard />} />
         <Route path="crm" element={<CrmPage />} />
         <Route path="proposals" element={<ProposalPage />} />
         <Route path="projects" element={<ProjectsPage />} />
         <Route path="finance" element={<FinancePage />} />
         <Route path="warehouse" element={<WarehousePage />} />
+        <Route path="pricing" element={<PricingPage />} />
         <Route path="supply" element={<SupplyPage />} />
         <Route path="auctions" element={<AuctionsRoute mode="open" />} />
         <Route path="auction-results" element={<AuctionsRoute mode="results" />} />

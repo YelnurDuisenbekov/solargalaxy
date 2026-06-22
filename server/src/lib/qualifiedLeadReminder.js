@@ -1,4 +1,5 @@
 import prisma from './prisma.js';
+import { notifyAdmins } from './notifyDirectors.js';
 
 function formatDateTitle(timeZone) {
   return new Intl.DateTimeFormat('ru-RU', {
@@ -72,16 +73,16 @@ export async function sendQualifiedLeadReminders({ timeZone = 'Asia/Almaty' } = 
   }
 
   if (unassigned.length) {
-    const managers = await prisma.user.findMany({
-      where: { role: { in: ['MANAGER', 'EMPLOYEE'] }, isActive: true },
-    });
     const unassignedTitle = `Нераспределённые лиды (${dateTitle})`;
     const lines = unassigned.map(formatLeadLine).join('; ');
-    const message = `${unassigned.length} заинтересованных лид(ов) без менеджера: ${lines}. Заберите в CRM.`;
+    const message = `${unassigned.length} заинтересованных лид(ов) без менеджера: ${lines}. Назначьте менеджера в CRM.`;
 
-    for (const manager of managers) {
-      if (await notifyUser(manager.id, unassignedTitle, message)) sent += 1;
-    }
+    await notifyAdmins({
+      type: 'QUALIFIED_LEAD_REMINDER',
+      title: unassignedTitle,
+      message,
+    });
+    sent += 1;
   }
 
   return { sent, leads: leads.length };

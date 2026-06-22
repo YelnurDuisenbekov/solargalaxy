@@ -13,6 +13,7 @@ import operationsRoutes from './routes/operations.js';
 import publicRoutes from './routes/public.js';
 import whatsappRoutes from './routes/whatsapp.js';
 import proposalsRoutes from './routes/proposals.js';
+import { syncAllProjectReservations, ensureReservationsSynced } from './lib/stockReservation.js';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -44,4 +45,7 @@ app.use((err, _req, res, _next) => {
 
 app.listen(PORT, () => {
   console.log(`SolarGalaxy API → http://localhost:${PORT}`);
+  ensureReservationsSynced(true)
+    .then(() => console.log('Stock reservations synced'))
+    .catch((err) => console.error('Stock reservation sync failed:', err));
 });

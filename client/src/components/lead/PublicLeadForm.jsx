@@ -6,6 +6,7 @@ import '../../pages/app/app-pages.css';
 
 import './PublicLeadForm.css';
 
+import { useAuth } from '../../context/AuthContext';
 import { publicApi } from '../../api';
 
 import LeadFormFields, { emptyLeadForm } from './LeadFormFields';
@@ -14,7 +15,9 @@ import { validateLeadForm, resolveCity } from '../../utils/leadValidation';
 
 import { calcRecommendedKw, PANEL_EFFICIENCY_PCT } from '../../utils/solarEstimate';
 
-import { formatNum, formatTariff } from '../../utils/format';
+import { formatNum, formatTariff, formatMoney } from '../../utils/format';
+import { publicInputClass } from '../../utils/publicFormInput';
+import { CALC_PRESETS, focusClearPreset, focusSelectAll } from '../../utils/formFieldFocus';
 
 import TariffChart, { TARIFF_HISTORY } from '../TariffChart';
 
@@ -64,6 +67,8 @@ export default function PublicLeadForm({
 
 }) {
 
+  const { user, isClient } = useAuth();
+
   const [form, setForm] = useState({ ...emptyLeadForm });
 
   const [fieldErrors, setFieldErrors] = useState({});
@@ -76,11 +81,20 @@ export default function PublicLeadForm({
 
 
 
-  const [monthlyBill, setMonthlyBill] = useState(150000);
+  useEffect(() => {
 
-  const [roofArea, setRoofArea] = useState(200);
+    if (!isClient || !user?.phone) return;
 
-  const [currentTariff, setCurrentTariff] = useState(42);
+    setForm((prev) => (prev.phone && prev.phone !== '+7' ? prev : { ...prev, phone: user.phone, fullName: prev.fullName || user.fullName || '' }));
+
+  }, [isClient, user?.phone, user?.fullName]);
+
+
+
+  const [monthlyBill, setMonthlyBill] = useState(CALC_PRESETS.monthlyBill);
+  const [roofArea, setRoofArea] = useState(CALC_PRESETS.roofArea);
+
+  const [currentTariff, setCurrentTariff] = useState(CALC_PRESETS.tariffBusiness);
 
   const [segment, setSegment] = useState('business');
 
@@ -100,12 +114,18 @@ export default function PublicLeadForm({
 
 
 
+  const tariffPreset = segment === 'household' ? CALC_PRESETS.tariffHousehold : CALC_PRESETS.tariffBusiness;
+
+  const handleCapacityFocus = () => {
+    if (!capacityTouched && form.capacityKw) {
+      setForm((prev) => ({ ...prev, capacityKw: '' }));
+      setCapacityTouched(true);
+    }
+  };
+
   const estimate = useMemo(
-
-    () => calcRecommendedKw({ monthlyBill, tariffPerKwh: currentTariff, roofArea }),
-
-    [monthlyBill, currentTariff, roofArea],
-
+    () => calcRecommendedKw({ monthlyBill, tariffPerKwh: currentTariff, roofArea, segment }),
+    [monthlyBill, currentTariff, roofArea, segment],
   );
 
 
@@ -151,6 +171,9 @@ export default function PublicLeadForm({
           `Счёт: ${formatNum(monthlyBill)} ₸/мес`,
 
           `Потребление: ~${formatNum(estimate.monthlyKwh)} кВт·ч/мес`,
+          `Рекомендуемая СЭС: ~${formatNum(estimate.recommendedKw)} кВт`,
+          `Выработка: ~${formatNum(estimate.annualGenerationKwh)} кВт·ч/год`,
+          `Окупаемость: ${estimate.paybackYears} лет (факт) / ${estimate.paybackYearsWithTariffGrowth} лет (рост тарифов ~${estimate.tariffGrowthPct}%/год)`,
 
           roofArea ? `Площадь под панели: ${formatNum(roofArea)} м²` : null,
 
@@ -221,221 +244,197 @@ export default function PublicLeadForm({
 
 
   return (
-
     <form className={`public-lead-form ${withCalculator ? 'public-lead-form--with-calc' : ''} ${className}`.trim()} onSubmit={submit}>
+      {withCalculator ? (
+        <div className="public-lead-form__unified card">
+          <div className="calculator__chart-section">
+            <TariffChart currentTariff={currentTariff} segment={segment} />
+          </div>
 
-      {withCalculator && (
-
-        <div className="calculator">
-
-          <div className="calculator__form-wrap">
-
-            <div className="card calculator__form">
-
+          <div className="public-lead-form__section">
+            <div className="public-lead-form__section-head">
+              <span className="public-lead-form__step">1</span>
+              <div>
+                <h3 className="public-lead-form__section-title">Параметры для расчёта</h3>
+                <p className="public-lead-form__section-hint">Серый текст — поле нужно заполнить</p>
+              </div>
+            </div>
+            <div className="calculator__inputs">
               <div className="calculator__field">
-
                 <label htmlFor="calc-tariff">Текущий тариф, ₸/кВт·ч</label>
-
                 <input
-
                   id="calc-tariff"
-
-                  className="input"
-
+                  className={publicInputClass(currentTariff)}
                   type="number"
-
                   min={5}
-
                   step={0.5}
-
-                  value={currentTariff}
-
+                  placeholder={String(tariffPreset)}
+                  value={currentTariff || ''}
+                  onFocus={(e) => focusClearPreset(e, {
+                    value: currentTariff,
+                    preset: tariffPreset,
+                    onClear: () => setCurrentTariff(0),
+                  })}
                   onChange={(e) => setCurrentTariff(Number(e.target.value) || 0)}
-
                 />
-
                 {isBelowMarket && (
-
                   <p className="calculator__tariff-hint calculator__tariff-hint--below">
-
                     Ваш тариф на <strong>{belowMarketPct}%</strong> ниже рыночного
-
                     ({formatTariff(marketRate)} ₸/кВт·ч в {marketTariff.year} г.)
-
                   </p>
-
                 )}
-
                 {currentTariff > marketRate && (
-
                   <p className="calculator__tariff-hint calculator__tariff-hint--above">
-
                     Ваш тариф на <strong>{Math.round(((currentTariff - marketRate) / marketRate) * 100)}%</strong> выше рыночного
-
                     ({formatTariff(marketRate)} ₸/кВт·ч в {marketTariff.year} г.)
-
                   </p>
-
                 )}
-
               </div>
 
               <div className="calculator__field">
-
                 <label htmlFor="calc-segment">Категория потребителя</label>
-
                 <select
-
                   id="calc-segment"
-
-                  className="input"
-
+                  className={publicInputClass(segment)}
                   value={segment}
-
                   onChange={(e) => {
-
                     setSegment(e.target.value);
-
-                    setCurrentTariff(e.target.value === 'household' ? 25.5 : 44);
-
+                    setCurrentTariff(e.target.value === 'household'
+                      ? CALC_PRESETS.tariffHousehold
+                      : CALC_PRESETS.tariffBusiness);
                   }}
-
                 >
-
                   <option value="household">Физическое лицо (частник)</option>
-
                   <option value="business">Юридическое лицо</option>
-
                 </select>
-
               </div>
 
               <div className="calculator__field">
-
                 <label htmlFor="calc-bill">Счёт за электроэнергию в месяц, ₸</label>
-
                 <input
-
                   id="calc-bill"
-
-                  className="input"
-
+                  className={publicInputClass(monthlyBill)}
                   type="text"
-
                   inputMode="numeric"
-
-                  placeholder={formatNum(150000)}
-
+                  placeholder="150 000"
                   value={monthlyBill ? formatNum(monthlyBill) : ''}
-
+                  onFocus={(e) => focusClearPreset(e, {
+                    value: monthlyBill,
+                    preset: CALC_PRESETS.monthlyBill,
+                    onClear: () => setMonthlyBill(0),
+                  })}
                   onChange={(e) => setMonthlyBill(Number(e.target.value.replace(/\s/g, '')) || 0)}
-
                 />
-
               </div>
 
               <div className="calculator__field">
-
                 <label htmlFor="calc-area">Доступная площадь под панели, м²</label>
-
                 <input
-
                   id="calc-area"
-
-                  className="input"
-
+                  className={publicInputClass(roofArea)}
                   type="text"
-
                   inputMode="numeric"
-
+                  placeholder="200"
                   value={roofArea ? formatNum(roofArea) : ''}
-
+                  onFocus={(e) => focusClearPreset(e, {
+                    value: roofArea,
+                    preset: CALC_PRESETS.roofArea,
+                    onClear: () => setRoofArea(0),
+                  })}
                   onChange={(e) => setRoofArea(Number(e.target.value.replace(/\s/g, '')) || 0)}
-
                 />
-
               </div>
+            </div>
 
-
-
-              {estimate && (
-
-                <div className="public-lead-form__estimate">
-
-                  <p><strong>Потребление:</strong> ~{formatNum(estimate.monthlyKwh)} кВт·ч в месяц</p>
-
-                  <p>
-
-                    <strong>Рекомендуемая СЭС:</strong> ~{formatNum(estimate.recommendedKw)} кВт
-
-                    {' '}(КПД модулей {PANEL_EFFICIENCY_PCT}%)
-
-                  </p>
-
-                  <p className="app-field__hint">Мощность подставится в заявку — можно изменить ниже.</p>
-
+            {estimate && (
+              <div className="public-lead-form__estimate">
+                <h4 className="public-lead-form__estimate-title">Ориентировочный расчёт СЭС</h4>
+                <div className="public-lead-form__metrics">
+                  <div className="public-lead-form__metric">
+                    <span>Потребление</span>
+                    <strong>~{formatNum(estimate.monthlyKwh)} кВт·ч/мес</strong>
+                  </div>
+                  <div className="public-lead-form__metric">
+                    <span>Рекомендуемая мощность</span>
+                    <strong>~{formatNum(estimate.recommendedKw)} кВт</strong>
+                  </div>
+                  <div className="public-lead-form__metric">
+                    <span>Выработка в год</span>
+                    <strong>{formatNum(estimate.annualGenerationKwh)} кВт·ч</strong>
+                  </div>
+                  <div className="public-lead-form__metric">
+                    <span>Экономия в год</span>
+                    <strong>{formatMoney(estimate.annualSaving)}</strong>
+                  </div>
+                  <div className="public-lead-form__metric">
+                    <span>Стоимость «под ключ»</span>
+                    <strong>~{formatMoney(estimate.installCost)}</strong>
+                  </div>
+                  {(estimate.paybackYears != null || estimate.paybackYearsWithTariffGrowth != null) && (
+                    <div className="public-lead-form__metric public-lead-form__metric--payback">
+                      <div className="public-lead-form__payback-labels">
+                        <span>Окупаемость (факт.)</span>
+                        <span title={`С учётом роста тарифа ~${formatNum(estimate.tariffGrowthPct)}% в год`}>
+                          Окупаемость (рост тарифа)
+                        </span>
+                      </div>
+                      <div className="public-lead-form__payback-values">
+                        <strong>{estimate.paybackYears} лет</strong>
+                        <strong>{estimate.paybackYearsWithTariffGrowth} лет</strong>
+                      </div>
+                    </div>
+                  )}
                 </div>
-
-              )}
-
-            </div>
-
+                <p className="public-lead-form__estimate-note">
+                  Это предварительный расчёт при тарифе {formatTariff(currentTariff)} ₸/кВт·ч, КПД модулей {PANEL_EFFICIENCY_PCT}%
+                  и инсоляции Казахстана. «Рост тарифа» — окупаемость с учётом среднего повышения тарифа по данным 2019–2025.
+                  Точный расчёт произведёт менеджер после получения заявки.
+                  Мощность подставится в заявку — можно изменить ниже.
+                </p>
+              </div>
+            )}
           </div>
 
-
-
-          <div className="calculator__chart-wrap">
-
-            <div className="card calculator__chart">
-
-              <TariffChart currentTariff={currentTariff} segment={segment} />
-
+          <div className="public-lead-form__section">
+            <div className="public-lead-form__section-head">
+              <span className="public-lead-form__step">2</span>
+              <div>
+                <h3 className="public-lead-form__section-title">Контакты для связи</h3>
+                <p className="public-lead-form__section-hint">Заполните обязательные поля (*)</p>
+              </div>
             </div>
-
+            <LeadFormFields
+              form={form}
+              setForm={(newForm) => {
+                if (newForm.capacityKw !== form.capacityKw) setCapacityTouched(true);
+                setForm(newForm);
+              }}
+              fieldErrors={fieldErrors}
+              publicStyle
+              onCapacityFocus={handleCapacityFocus}
+            />
           </div>
 
+          <FormErrors error={error} fieldErrors={fieldErrors} />
+
+          <button type="submit" className="btn btn--primary btn--cta" disabled={saving}>
+            {saving ? 'Отправка…' : submitLabel}
+          </button>
         </div>
-
+      ) : (
+        <div className="public-lead-form__fields card">
+          <LeadFormFields
+            form={form}
+            setForm={setForm}
+            fieldErrors={fieldErrors}
+          />
+          <FormErrors error={error} fieldErrors={fieldErrors} />
+          <button type="submit" className="btn btn--primary btn--cta" disabled={saving}>
+            {saving ? 'Отправка…' : submitLabel}
+          </button>
+        </div>
       )}
-
-
-
-      <div className="public-lead-form__fields card">
-
-        {withCalculator && (
-
-          <h3 className="public-lead-form__fields-title">Данные для расчёта и связи</h3>
-
-        )}
-
-        <LeadFormFields
-
-          form={form}
-
-          setForm={(newForm) => {
-
-            if (newForm.capacityKw !== form.capacityKw) setCapacityTouched(true);
-
-            setForm(newForm);
-
-          }}
-
-          fieldErrors={fieldErrors}
-
-        />
-
-        <FormErrors error={error} fieldErrors={fieldErrors} />
-
-        <button type="submit" className="btn btn--primary btn--cta" disabled={saving}>
-
-          {saving ? 'Отправка…' : submitLabel}
-
-        </button>
-
-      </div>
-
     </form>
-
   );
 
 }
@@ -480,7 +479,7 @@ export function RegisterPromptModal({ lead, onClose }) {
 
           Менеджер Solar Galaxy свяжется с вами в ближайшее время.
 
-          Зарегистрируйтесь в личном кабинете — там будут видны ваши проекты и расчёты.
+          Зарегистрируйтесь в личном кабинете — заявка и предварительный расчёт появятся во вкладке «Мои заявки».
 
         </p>
 
