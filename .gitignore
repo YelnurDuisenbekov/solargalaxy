@@ -11,3 +11,4 @@ coverage/
 .idea/
 .vercel/
 server/uploads/
+backups/
