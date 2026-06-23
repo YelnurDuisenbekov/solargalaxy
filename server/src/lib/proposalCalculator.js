@@ -43,14 +43,23 @@ export function pickPanel(products, templateProductId) {
   return panels.sort((a, b) => (b.powerW || 0) - (a.powerW || 0))[0] || null;
 }
 
-export function pickInverter(products, capacityKw, templateProductId) {
+function inverterPoolForSystem(products, systemType) {
+  const inverters = products.filter((p) => p.kitCategory === 'INVERTER' && p.capacityKw);
+  if (systemType === 'ON_GRID') {
+    return inverters.filter((p) => p.description === 'on-grid');
+  }
+  const hybrid = inverters.filter((p) => p.description === 'hybrid');
+  return hybrid.length ? hybrid : inverters.filter((p) => p.description !== 'on-grid');
+}
+
+export function pickInverter(products, capacityKw, templateProductId, systemType = 'ON_GRID') {
   if (templateProductId) {
     const found = products.find((p) => p.id === templateProductId);
     if (found) return found;
   }
-  const inverters = products
-    .filter((p) => p.kitCategory === 'INVERTER' && p.capacityKw)
-    .sort((a, b) => a.capacityKw - b.capacityKw);
+  const inverters = inverterPoolForSystem(products, systemType).sort(
+    (a, b) => a.capacityKw - b.capacityKw,
+  );
   const match = inverters.find((i) => i.capacityKw >= capacityKw);
   if (match) return match;
   return inverters[inverters.length - 1] || products.find((p) => p.kitCategory === 'INVERTER') || null;
@@ -83,7 +92,7 @@ export function resolveQuantity(allocation, { panels, capacityKw, qtyMultiplier 
 function resolveProduct(line, products, ctx) {
   const { category, productId } = line;
   if (category === 'PANEL') return pickPanel(products, productId);
-  if (category === 'INVERTER') return pickInverter(products, ctx.capacityKw, productId);
+  if (category === 'INVERTER') return pickInverter(products, ctx.capacityKw, productId, ctx.systemType);
   if (category === 'BATTERY') return pickBattery(products, productId);
   if (productId) return products.find((p) => p.id === productId) || null;
   return products.find((p) => p.kitCategory === category) || null;
@@ -108,7 +117,7 @@ export function buildProposalKit(systemType, capacityKw, products = [], template
   const panelPowerW = panelProduct?.powerW || 550;
   const panels = panelCount(kw, panelPowerW);
 
-  const ctx = { capacityKw: kw, panels, panelProduct, panelPowerW };
+  const ctx = { capacityKw: kw, panels, panelProduct, panelPowerW, systemType };
   const items = [];
   const percentLines = activeLines.filter((l) => l.allocation === 'PERCENT_EQUIPMENT');
   const regularLines = activeLines.filter((l) => l.allocation !== 'PERCENT_EQUIPMENT');

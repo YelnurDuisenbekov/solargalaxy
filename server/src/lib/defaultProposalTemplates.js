@@ -1,3 +1,5 @@
+import { DEFAULT_BATTERY_SKU, DEFAULT_PANEL_SKU } from '../../prisma/catalogTemplate.js';
+
 /** Шаблоны удельных расходов КП по умолчанию (по типам систем). */
 export const DEFAULT_PROPOSAL_TEMPLATES = [
   // ── Сетевая ──
@@ -44,9 +46,9 @@ export async function ensureDefaultProposalTemplates(prisma, productsBySku = {})
   }
 
   const skuByCategory = {
-    PANEL: 'LONGI-650',
+    PANEL: DEFAULT_PANEL_SKU,
     INVERTER: null,
-    BATTERY: 'PYL-US3K',
+    BATTERY: DEFAULT_BATTERY_SKU,
     MOUNTING: 'MOUNT-KIT',
     CABLE: 'CABLE-SET',
     COMMISSIONING: 'COMM-STD',

@@ -7,6 +7,7 @@ import { authRequired, requireRoles } from '../lib/auth.js';
 import { normalizePhone } from '../lib/phone.js';
 
 import { linkProjectsToClient, linkLeadsToClient } from '../lib/projectIdentity.js';
+import { getLeadProposal, syncLeadProposal } from '../lib/leadProposal.js';
 
 
 
@@ -66,7 +67,7 @@ const leadListSelect = {
   systemType: true,
 
   capacityKw: true,
-
+  proposalAmount: true,
   status: true,
 
   source: true,
@@ -82,14 +83,36 @@ const leadListSelect = {
 async function clientLeads(clientId) {
   if (!clientId) return [];
 
-  return prisma.lead.findMany({
-    where: {
-      clientId,
-      status: { notIn: ['CONVERTED', 'LOST'] },
-    },
+  const where = {
+    clientId,
+    status: { notIn: ['CONVERTED', 'LOST'] },
+  };
+
+  let leads = await prisma.lead.findMany({
+    where,
     select: leadListSelect,
     orderBy: { createdAt: 'desc' },
   });
+
+  const productCount = await prisma.product.count();
+  if (productCount > 0) {
+    let synced = false;
+    for (const lead of leads) {
+      if (lead.capacityKw && !lead.proposalAmount) {
+        await syncLeadProposal(prisma, lead, { force: true });
+        synced = true;
+      }
+    }
+    if (synced) {
+      leads = await prisma.lead.findMany({
+        where,
+        select: leadListSelect,
+        orderBy: { createdAt: 'desc' },
+      });
+    }
+  }
+
+  return leads;
 }
 
 
@@ -390,7 +413,25 @@ router.get('/leads/:id', requireRoles('CLIENT'), async (req, res) => {
     return res.status(404).json({ error: 'Заявка не найдена' });
   }
 
-  res.json(full);
+  let proposalAmount = full.proposalAmount ?? 0;
+  let proposalItems = [];
+
+  if (full.capacityKw) {
+    const proposal = await getLeadProposal(prisma, full.id);
+    if (proposal) {
+      proposalAmount = proposal.proposalAmount ?? 0;
+      proposalItems = (proposal.proposalItems || []).map((i) => ({
+        id: i.id,
+        name: i.name,
+        category: i.category,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        discountPct: i.discountPct ?? 0,
+      }));
+    }
+  }
+
+  res.json({ ...full, proposalAmount, proposalItems });
 });
 
 

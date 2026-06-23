@@ -10,6 +10,8 @@
     "db:generate": "prisma generate",
     "db:seed": "node prisma/seed.js",
     "db:seed-prod": "node prisma/seed-prod.js",
+    "db:seed-catalog": "node prisma/seedCatalog.js",
+    "db:backfill-proposals": "node scripts/backfill-lead-proposals.js",
     "sync:reservations": "node scripts/sync-reservations.js",
     "db:clear-crm": "node prisma/clear-crm.js",
     "reminder:run": "node scripts/run-reminder.js",

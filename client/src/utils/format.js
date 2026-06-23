@@ -59,3 +59,9 @@ export function formatDateTime(value) {
 export function formatMoney(value) {
   return `${formatNum(value)} ₸`;
 }
+
+/** Сумма строки КП с учётом скидки */
+export function proposalLineTotal(item) {
+  const discount = item.discountPct ?? 0;
+  return item.quantity * item.unitPrice * (1 - discount / 100);
+}

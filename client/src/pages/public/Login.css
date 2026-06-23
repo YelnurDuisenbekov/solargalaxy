@@ -29,6 +29,20 @@
   gap: 14px;
 }
 
+.login-page__form .input,
+.login-page__form select,
+.login-page__form textarea {
+  transition: border-color 0.22s ease, box-shadow 0.22s ease;
+}
+
+.login-page__form .btn {
+  transition: transform 0.18s ease, box-shadow 0.22s ease, background 0.22s ease;
+}
+
+.login-page__form .btn:active {
+  transform: scale(0.98);
+}
+
 .login-page__hint {
   margin-top: 16px;
   font-size: 0.8125rem;
@@ -44,9 +58,20 @@
 @media (max-width: 480px) {
   .login-page {
     padding: 32px 0 48px;
+    min-height: auto;
   }
 
   .login-page .btn {
     width: 100%;
+    min-height: 48px;
+  }
+
+  .login-page__form {
+    gap: 16px;
+  }
+
+  .login-page__form .input {
+    min-height: 48px;
+    font-size: 16px;
   }
 }

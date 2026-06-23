@@ -1,9 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import { ensureDefaultProposalTemplates } from '../src/lib/defaultProposalTemplates.js';
 import { syncLeadProposal } from '../src/lib/leadProposal.js';
 import { nextProjectNumber } from '../src/lib/projectIdentity.js';
 import { normalizePhone } from '../src/lib/phone.js';
+import { seedProductCatalog } from './seedCatalog.js';
 
 const prisma = new PrismaClient();
 
@@ -29,6 +29,7 @@ async function main() {
   await prisma.projectAttachment.deleteMany();
   await prisma.contractorBid.deleteMany();
   await prisma.dealKitItem.deleteMany();
+  await prisma.leadProposalItem.deleteMany();
   await prisma.proposalCostLine.deleteMany();
   await prisma.userPermission.deleteMany();
   await prisma.activity.deleteMany();
@@ -37,6 +38,12 @@ async function main() {
   await prisma.stockReservation.deleteMany();
   await prisma.materialTransferActItem.deleteMany();
   await prisma.materialTransferAct.deleteMany();
+  await prisma.materialWriteOffBatchItem.deleteMany();
+  await prisma.materialWriteOffBatch.deleteMany();
+  await prisma.stockAdjustmentItem.deleteMany();
+  await prisma.stockAdjustmentBatch.deleteMany();
+  await prisma.stockReceiptItem.deleteMany();
+  await prisma.stockReceipt.deleteMany();
   await prisma.stockMovement.deleteMany();
   await prisma.stockItem.deleteMany();
   await prisma.product.deleteMany();
@@ -120,28 +127,10 @@ async function main() {
     company: 'ТОО «Green Energy»',
   });
 
-  const products = [
-    { sku: 'LONGI-650', name: 'Longi Hi-MO 650W', category: 'Панели', price: 125000, purchasePrice: 100000, qty: 120, kitCategory: 'PANEL', minStock: 20, powerW: 650 },
-    { sku: 'DEYE-5K', name: 'Deye SUN-5K-G03', category: 'Инверторы', price: 125000, purchasePrice: 100000, qty: 15, kitCategory: 'INVERTER', minStock: 3, capacityKw: 5 },
-    { sku: 'DEYE-10K', name: 'Deye SUN-10K-G03', category: 'Инверторы', price: 125000, purchasePrice: 100000, qty: 8, kitCategory: 'INVERTER', minStock: 2, capacityKw: 10 },
-    { sku: 'DEYE-20K', name: 'Deye SUN-20K-G03', category: 'Инверторы', price: 125000, purchasePrice: 100000, qty: 4, kitCategory: 'INVERTER', minStock: 1, capacityKw: 20 },
-    { sku: 'PYL-US3K', name: 'Pylontech US3000C', category: 'АКБ', price: 125000, purchasePrice: 100000, qty: 8, kitCategory: 'BATTERY', minStock: 2, capacityKwh: 3.5 },
-    { sku: 'MOUNT-KIT', name: 'Опорная конструкция (за 1 панель)', category: 'Монтаж', price: 125000, purchasePrice: 100000, qty: 999, kitCategory: 'MOUNTING', minStock: 0 },
-    { sku: 'COMM-STD', name: 'Пусконаладка', category: 'Услуги', price: 125000, purchasePrice: 100000, qty: 999, kitCategory: 'COMMISSIONING', minStock: 0 },
-    { sku: 'CABLE-SET', name: 'Кабельный комплект MC4', category: 'Кабели', price: 125000, purchasePrice: 100000, qty: 30, kitCategory: 'CABLE', minStock: 5 },
-  ];
+  const createdProducts = await seedProductCatalog(prisma);
 
-  const createdProducts = {};
-  for (const p of products) {
-    const { qty, powerW, capacityKw, capacityKwh, ...rest } = p;
-    const product = await prisma.product.create({
-      data: { ...rest, powerW, capacityKw, capacityKwh },
-    });
-    await prisma.stockItem.create({ data: { productId: product.id, quantity: qty, location: 'Шымкент' } });
-    createdProducts[p.sku] = product;
-  }
-
-  await ensureDefaultProposalTemplates(prisma, createdProducts);
+  const panelSku = 'LR8-66HVD-650M';
+  const inverterSku = 'DEYE-10-P1';
 
   const leads = [
     { fullName: 'Ерлан Беков', phone: '+7 777 123 4567', city: 'Шымкент', objectType: 'OFFICE', systemType: 'ON_GRID', capacityKw: 10, source: 'Сайт', notes: 'Сетевая СЭС 10 кВт', status: 'QUALIFIED', assigneeId: manager1.id },
@@ -178,8 +167,8 @@ async function main() {
 
   await prisma.dealKitItem.createMany({
     data: [
-      { dealId: deal.id, productId: createdProducts['LONGI-650'].id, category: 'PANEL', name: 'Longi Hi-MO 650W', quantity: 16, unitPrice: 48000, stockAvailable: 120 },
-      { dealId: deal.id, productId: createdProducts['DEYE-10K'].id, category: 'INVERTER', name: 'Deye SUN-10K-G03', quantity: 1, unitPrice: 320000, stockAvailable: 8 },
+      { dealId: deal.id, productId: createdProducts[panelSku].id, category: 'PANEL', name: createdProducts[panelSku].name, quantity: 16, unitPrice: createdProducts[panelSku].price, stockAvailable: 120 },
+      { dealId: deal.id, productId: createdProducts[inverterSku].id, category: 'INVERTER', name: createdProducts[inverterSku].name, quantity: 1, unitPrice: createdProducts[inverterSku].price, stockAvailable: 8 },
       { dealId: deal.id, productId: createdProducts['MOUNT-KIT'].id, category: 'MOUNTING', name: 'Опорная конструкция', quantity: 19, unitPrice: 18000, stockAvailable: 999 },
       { dealId: deal.id, productId: createdProducts['COMM-STD'].id, category: 'COMMISSIONING', name: 'Пусконаладка', quantity: 1, unitPrice: 150000, stockAvailable: 999 },
       { dealId: deal.id, productId: createdProducts['CABLE-SET'].id, category: 'CABLE', name: 'Кабельный комплект MC4', quantity: 2, unitPrice: 45000, stockAvailable: 30 },
@@ -221,8 +210,8 @@ async function main() {
 
   await prisma.projectMaterial.createMany({
     data: [
-      { projectId: project.id, productId: createdProducts['LONGI-650'].id, quantityPlanned: 16, quantityIssued: 0 },
-      { projectId: project.id, productId: createdProducts['DEYE-10K'].id, quantityPlanned: 1, quantityIssued: 0 },
+      { projectId: project.id, productId: createdProducts[panelSku].id, quantityPlanned: 16, quantityIssued: 0 },
+      { projectId: project.id, productId: createdProducts[inverterSku].id, quantityPlanned: 1, quantityIssued: 0 },
     ],
   });
 
@@ -242,10 +231,10 @@ async function main() {
     data: {
       userId: logistika.id,
       type: 'PURCHASE_REQUIRED',
-      title: 'Докупка: Longi Hi-MO 650W',
+      title: 'Докупка: LONGI Hi-Mo X10 645W',
       message: 'Проверьте остатки панелей для проекта 50 кВт.',
       projectId: project.id,
-      productId: createdProducts['LONGI-650'].id,
+      productId: createdProducts[panelSku].id,
     },
   });
 

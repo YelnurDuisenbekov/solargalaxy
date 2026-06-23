@@ -564,12 +564,16 @@
   text-align: left;
   cursor: pointer;
   border: 2px solid transparent;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color 0.22s ease, box-shadow 0.22s ease, transform 0.18s ease;
   font-family: inherit;
 }
 
 .app-stat-card--clickable:hover:not(:disabled) {
   border-color: var(--blue);
+}
+
+.app-stat-card--clickable:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .app-stat-card--clickable:disabled {
@@ -598,11 +602,15 @@
   background: var(--white);
   cursor: pointer;
   font-family: inherit;
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color 0.22s ease, background 0.22s ease, transform 0.22s ease, box-shadow 0.22s ease;
 }
 
 .app-portal-card:hover {
   border-color: var(--blue);
+}
+
+.app-portal-card:active {
+  transform: scale(0.99);
 }
 
 .app-portal-card--active {
@@ -1305,4 +1313,118 @@
 
 .app-flash-toast__close:hover {
   opacity: 1;
+}
+
+/* ── Личный кабинет клиента ── */
+.app-portal .app-detail-panel {
+  animation: portal-detail-in 0.28s ease-out;
+}
+
+@keyframes portal-detail-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.app-portal-tabs {
+  transition: box-shadow 0.25s ease;
+}
+
+.app-portal-proposal__total {
+  margin: 0 0 12px;
+  font-size: 1.0625rem;
+  color: var(--blue);
+}
+
+.app-portal-proposal__total strong {
+  font-size: 1.25rem;
+  color: var(--green-dark);
+}
+
+.app-portal-proposal__note {
+  margin: 12px 0 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+@media (max-width: 768px) {
+  .app-portal-tabs {
+    position: sticky;
+    top: 0;
+    z-index: 8;
+    padding: 8px 0 4px;
+    margin: 0 -4px;
+    background: linear-gradient(180deg, var(--bg, #f4f6f9) 85%, transparent);
+  }
+
+  .app-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .app-stat-card__label {
+    font-size: 0.75rem;
+  }
+
+  .app-stat-card__value {
+    font-size: 1.375rem;
+  }
+
+  .app-portal-list {
+    max-height: min(42vh, 360px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    padding-right: 2px;
+  }
+
+  .app-portal-card {
+    padding: 16px;
+    min-height: 52px;
+  }
+
+  .app-portal-card__head {
+    gap: 8px;
+  }
+
+  .app-portal-card__head strong {
+    font-size: 0.875rem;
+  }
+
+  .app-detail-panel {
+    margin-top: 16px;
+  }
+
+  .app-detail-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .app-portal-proposal .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .app-phase-pipeline {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-page-title {
+    font-size: 1.375rem;
+  }
+
+  .app-portal-tabs {
+    top: -4px;
+  }
 }

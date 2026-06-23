@@ -7,7 +7,7 @@ import { portalApi } from '../../api';
 import { Reveal, RevealGroup, RevealItem } from '../../components/motion/ScrollReveal';
 import AddressMapsLink from '../../components/AddressMapsLink';
 
-import { formatMoney, formatNum } from '../../utils/format';
+import { formatMoney, formatNum, proposalLineTotal } from '../../utils/format';
 
 import {
 
@@ -576,6 +576,82 @@ function LeadDetail({ lead }) {
 
         )}
 
+
+
+        {lead.capacityKw > 0 && (
+
+          <div className="app-portal-detail__block app-portal-proposal">
+
+            <h3 className="app-portal-detail__subtitle">Коммерческое предложение (предварительное)</h3>
+
+            {lead.proposalAmount > 0 ? (
+
+              <>
+
+                <p className="app-portal-proposal__total">
+
+                  Итого: <strong>{formatMoney(lead.proposalAmount)}</strong>
+
+                </p>
+
+                {lead.proposalItems?.length > 0 && (
+
+                  <div className="table-wrap">
+
+                    <table className="table table--compact">
+
+                      <thead>
+
+                        <tr><th>Позиция</th><th>Кол-во</th><th>Сумма</th></tr>
+
+                      </thead>
+
+                      <tbody>
+
+                        {lead.proposalItems.map((item) => (
+
+                          <tr key={item.id}>
+
+                            <td>{item.name}</td>
+
+                            <td>{formatNum(item.quantity)}</td>
+
+                            <td>{formatMoney(proposalLineTotal(item))}</td>
+
+                          </tr>
+
+                        ))}
+
+                      </tbody>
+
+                    </table>
+
+                  </div>
+
+                )}
+
+                <p className="app-portal-proposal__note">
+
+                  Точная комплектация и стоимость уточняются менеджером после обследования объекта.
+
+                </p>
+
+              </>
+
+            ) : (
+
+              <p className="app-page-desc" style={{ margin: 0 }}>
+
+                КП формируется — менеджер свяжется с вами для уточнения деталей.
+
+              </p>
+
+            )}
+
+          </div>
+
+        )}
+
       </div>
 
     </div>
@@ -770,7 +846,7 @@ export default function ClientPortal() {
 
   return (
 
-    <div>
+    <div className="app-portal">
 
       <Reveal>
 
@@ -796,7 +872,7 @@ export default function ClientPortal() {
 
         <>
 
-          <RevealGroup className="app-stats-grid" stagger={0.06}>
+          <RevealGroup className="app-stats-grid app-portal-tabs" stagger={0.06}>
 
             {tabs.map((t) => (
 
@@ -836,7 +912,7 @@ export default function ClientPortal() {
 
             <Reveal delay={0.05}>
 
-              <div className="card app-section-card" style={{ marginTop: 24 }}>
+              <div className="card app-section-card app-portal-section" style={{ marginTop: 24 }}>
 
                 <h2 className="app-section-card__title">
 
@@ -885,6 +961,8 @@ export default function ClientPortal() {
                         {SYSTEM_TYPE[l.systemType] || '—'}
 
                         {l.capacityKw ? ` · ${formatNum(l.capacityKw)} кВт` : ''}
+
+                        {l.proposalAmount > 0 ? ` · КП ${formatMoney(l.proposalAmount)}` : ''}
 
                       </p>
 
@@ -1018,7 +1096,7 @@ export default function ClientPortal() {
 
             <Reveal delay={0.05}>
 
-              <div className="card app-section-card" style={{ marginTop: 24 }}>
+              <div className="card app-section-card app-portal-section" style={{ marginTop: 24 }}>
 
                 <p className="app-page-desc" style={{ margin: 0 }}>
 

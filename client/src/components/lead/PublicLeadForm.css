@@ -38,6 +38,8 @@
 
   background: linear-gradient(180deg, #fafbfd 0%, #fff 120px);
 
+  transition: box-shadow 0.3s ease;
+
 }
 
 
@@ -63,6 +65,8 @@
   gap: 20px;
 
   padding: 28px;
+
+  transition: opacity 0.25s ease;
 
 }
 
@@ -425,6 +429,8 @@
 
   border: 1px solid var(--border);
 
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+
 }
 
 
@@ -516,6 +522,24 @@
   .public-lead-form__metrics {
 
     grid-template-columns: 1fr;
+
+  }
+
+  .public-lead-form__metric:active {
+
+    transform: scale(0.99);
+
+  }
+
+  .public-lead-form .btn--cta {
+
+    position: sticky;
+
+    bottom: 12px;
+
+    z-index: 4;
+
+    box-shadow: 0 8px 24px rgba(18, 82, 140, 0.2);
 
   }
 
