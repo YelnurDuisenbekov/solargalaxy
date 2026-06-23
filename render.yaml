@@ -36,7 +36,7 @@ services:
       - key: WHATSAPP_PROVIDER
         value: green
       - key: GREEN_API_URL
-        value: https://api.green-api.com
+        value: https://7107.api.greenapi.com
       - key: GREEN_API_ID_INSTANCE
         sync: false
       - key: GREEN_API_TOKEN

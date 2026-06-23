@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { publicApi } from '../../api';
+import PublicLeadForm, { RegisterPromptModal } from '../../components/lead/PublicLeadForm';
 import { Reveal, RevealGroup, RevealItem } from '../../components/motion/ScrollReveal';
 import './Contact.css';
 
@@ -21,19 +21,7 @@ const INFO_CARDS = [
 ];
 
 export default function Contact() {
-  const [form, setForm] = useState({ name: '', phone: '', email: '', notes: '' });
-  const [msg, setMsg] = useState('');
-
-  const submit = async (e) => {
-    e.preventDefault();
-    try {
-      await publicApi.createLead(form);
-      setMsg('Заявка отправлена! Менеджер свяжется с вами.');
-      setForm({ name: '', phone: '', email: '', notes: '' });
-    } catch {
-      setMsg('Не удалось отправить заявку. Позвоните нам: ' + CONTACTS.phone);
-    }
-  };
+  const [registerPrompt, setRegisterPrompt] = useState(null);
 
   return (
     <>
@@ -71,15 +59,13 @@ export default function Contact() {
           </RevealGroup>
 
           <Reveal delay={0.1}>
-            <form className="card contact-form" onSubmit={submit}>
-              <h2>Оставить заявку</h2>
-              <input className="input" placeholder="Имя" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-              <input className="input" placeholder="Телефон" required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-              <input className="input" placeholder="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-              <textarea className="input" placeholder="Опишите объект или задайте вопрос" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-              <button type="submit" className="btn btn--primary contact-form__submit">Отправить заявку</button>
-              {msg && <p className="contact-form__msg">{msg}</p>}
-            </form>
+            <div className="contact-form-block">
+              <h2 className="contact-form-block__title">Оставить заявку</h2>
+              <PublicLeadForm
+                submitLabel="Отправить заявку"
+                onSubmitted={(lead) => setRegisterPrompt(lead)}
+              />
+            </div>
           </Reveal>
         </div>
       </section>
@@ -112,6 +98,10 @@ export default function Contact() {
           </Reveal>
         </div>
       </section>
+
+      {registerPrompt && (
+        <RegisterPromptModal lead={registerPrompt} onClose={() => setRegisterPrompt(null)} />
+      )}
     </>
   );
 }

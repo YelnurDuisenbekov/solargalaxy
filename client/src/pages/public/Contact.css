@@ -96,10 +96,11 @@ a.contact-card__value:hover { color: var(--green); }
   gap: 14px;
 }
 
-.contact-form h2 {
+.contact-form h2,
+.contact-form-block__title {
   color: var(--blue);
   font-size: 1.125rem;
-  margin-bottom: 4px;
+  margin-bottom: 12px;
 }
 
 .contact-form__msg {

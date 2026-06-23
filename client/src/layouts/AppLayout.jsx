@@ -13,7 +13,13 @@ export default function AppLayout() {
   return (
     <div className="app-layout">
       <aside className="app-sidebar">
-        <Link to="/" className="app-sidebar__brand" title="На сайт (кабинет останется открыт)">Solar<span>Galaxy</span></Link>
+        <Link to="/" className="app-sidebar__brand" title="На сайт (кабинет останется открыт)">
+          <img src="/logo-mark.png" alt="" className="app-sidebar__brand-mark" />
+          <span className="app-sidebar__brand-text">
+            <span className="app-sidebar__brand-name">SOLAR GALAXY</span>
+            <span className="app-sidebar__brand-tagline">CLEAN ENERGY SOLUTIONS</span>
+          </span>
+        </Link>
         <p className="app-sidebar__user">{user?.fullName}</p>
         <span className="app-sidebar__role">{USER_ROLE[user?.role] || user?.role}</span>
 

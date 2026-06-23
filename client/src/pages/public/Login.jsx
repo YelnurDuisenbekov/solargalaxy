@@ -7,7 +7,7 @@ import './Login.css';
 
 function deliveryMessage(credentialsDelivery) {
   if (credentialsDelivery?.channels?.includes('whatsapp')) {
-    return 'Регистрация успешна. Логин и пароль отправлены в WhatsApp.';
+    return 'Регистрация успешна. Приветствие с логином и паролем отправлены в WhatsApp.';
   }
   if (credentialsDelivery?.whatsappError === 'not_configured') {
     return 'Регистрация успешна. WhatsApp не настроен — сохраните пароль, он больше не отобразится.';
@@ -69,9 +69,9 @@ export default function Login() {
       const msg = err.message || 'Не удалось войти';
       if (msg.includes('Неверные данные')) {
         if (loginMode === 'client') {
-          setError('Неверный телефон или пароль. Демо: +7 700 000 0060 / klient123. Или вкладка «Сотрудник» для admin.');
+          setError('Неверный телефон или пароль. Нет аккаунта — вкладка «Регистрация».');
         } else {
-          setError('Неверный логин или пароль. Демо: admin / admin123 (без email).');
+          setError('Неверный логин или пароль.');
         }
       } else {
         setError(msg);
@@ -110,6 +110,7 @@ export default function Login() {
     <div className="login-page">
       <div className="container login-page__inner">
         <Reveal>
+          <img src="/logo-mark.png" alt="Solar Galaxy" className="login-page__logo" />
           <h1>{mode === 'login' ? 'Вход в систему' : 'Регистрация клиента'}</h1>
           <p className="login-page__desc">
             {mode === 'login'
@@ -210,16 +211,10 @@ export default function Login() {
             </form>
           )}
 
-          {mode === 'login' && loginMode === 'staff' && (
-            <p className="login-page__hint">
-              admin / admin123 · menedzher1 / menedzher123
-            </p>
-          )}
-
           {mode === 'login' && loginMode === 'client' && (
             <p className="login-page__hint">
-              Телефон из заявки и пароль при регистрации. Демо: <strong>+7 700 000 0060</strong> / <strong>klient123</strong>
-              {' '}· Нет аккаунта — «Регистрация». CRM — вкладка «Сотрудник».
+              Вход по номеру телефона из заявки и паролю, который вы задали при регистрации.
+              Нет аккаунта — вкладка «Регистрация».
             </p>
           )}
         </Reveal>

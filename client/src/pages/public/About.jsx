@@ -6,7 +6,7 @@ import './About.css';
 const IMAGES = {
   eps: 'https://images.unsplash.com/photo-1508514177221-188b1cf16e9d?w=800&q=80',
   panels: 'https://images.unsplash.com/photo-1509391366360-2e959784a276?w=800&q=80',
-  farm: 'https://images.unsplash.com/photo-1466611653911-950815379e64?w=800&q=80',
+  farm: 'https://images.unsplash.com/photo-1613665813446-82a78c468a1d?w=800&q=80',
   roof: 'https://images.unsplash.com/photo-1558449028-b53a39d100fc?w=800&q=80',
 };
 
@@ -193,7 +193,7 @@ export default function About() {
               Инженеры Solar Galaxy подготовят предварительный расчёт за 1 рабочий день.
               г. Шымкент, ул. Байтурсынова 85 (БЦ Орда), каб. 210 · +7 700 330 1999
             </p>
-            <Link to="/contact" className="btn btn--primary">Получить расчёт</Link>
+            <Link to="/#quote-form" className="btn btn--primary">Получить расчёт</Link>
           </Reveal>
         </div>
       </section>

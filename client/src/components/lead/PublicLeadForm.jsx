@@ -209,7 +209,7 @@ export default function PublicLeadForm({
 
       };
 
-      await publicApi.createLead(payload);
+      const created = await publicApi.createLead(payload);
 
       onSubmitted?.({
 
@@ -218,6 +218,8 @@ export default function PublicLeadForm({
         phone: form.phone,
 
         city: payload.city,
+
+        alreadyClient: Boolean(created?.clientId),
 
       });
 
@@ -468,6 +470,42 @@ export function RegisterPromptModal({ lead, onClose }) {
     });
 
   };
+
+
+
+  if (lead.alreadyClient) {
+
+    return (
+
+      <div className="app-modal-backdrop public-register-prompt" onClick={onClose}>
+
+        <div className="app-modal" onClick={(e) => e.stopPropagation()}>
+
+          <h2>Заявка принята!</h2>
+
+          <p style={{ fontSize: '0.9375rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
+
+            Менеджер Solar Galaxy свяжется с вами в ближайшее время.
+
+            Заявка уже привязана к вашему личному кабинету — войдите, чтобы видеть статус, расчёт и КП.
+
+          </p>
+
+          <div className="app-modal__actions">
+
+            <button type="button" className="btn btn--primary" onClick={() => navigate('/login')}>Войти в кабинет</button>
+
+            <button type="button" className="btn btn--outline-dark" onClick={onClose}>Закрыть</button>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    );
+
+  }
 
 
 

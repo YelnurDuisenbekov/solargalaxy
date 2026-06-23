@@ -16,20 +16,24 @@ function loginPageUrl() {
 
 function credentialsMessage({ fullName, phone, login, password }) {
   const loginHint = login && login !== phone ? login : phone;
+  const sep = '__________';
 
   return [
     `Здравствуйте, ${fullName}!`,
     '',
-    'Вы зарегистрированы в личном кабинете Solar Galaxy.',
+    '☀️Добро пожаловать в Solar Galaxy!',
     '',
+    'Вы очень важны для нас — мы ценим ваше доверие и будем рядом на каждом этапе.',
+    sep,
+    '',
+    'Ваши данные для входа в личный кабинет:',
     `Логин: ${loginHint}`,
     `Пароль: ${password}`,
+    sep,
     '',
     `Вход: ${loginPageUrl()}`,
-    '',
-    'Сохраните эти данные. В кабинете — ваши заявки, проекты и расчёты.',
-    phone && loginHint !== phone ? `Также можно войти по телефону: ${phone}` : '',
-  ].filter(Boolean).join('\n');
+    'Сохраните это сообщение. В кабинете — ваши заявки, проекты и расчёты.',
+  ].join('\n');
 }
 
 /** Отправить логин и пароль клиенту в WhatsApp. */

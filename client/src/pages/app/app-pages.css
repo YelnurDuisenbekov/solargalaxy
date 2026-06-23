@@ -6,7 +6,13 @@
   margin-bottom: 24px;
   border-bottom: 2px solid var(--border);
   overflow-x: auto;
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.app-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .app-tab {
@@ -129,7 +135,7 @@
 
 .app-kanban__col--drop-target {
   outline: 2px dashed var(--green);
-  background: rgba(45, 197, 110, 0.07);
+  background: rgba(27, 138, 69, 0.07);
 }
 
 .app-project-detail-head {
@@ -231,9 +237,9 @@
   font-weight: 600;
   line-height: 1.2;
   border-radius: 6px;
-  background: rgba(45, 197, 110, 0.12);
+  background: rgba(27, 138, 69, 0.12);
   color: var(--primary);
-  border: 1px solid rgba(45, 197, 110, 0.25);
+  border: 1px solid rgba(27, 138, 69, 0.25);
   text-align: center;
 }
 
@@ -550,7 +556,7 @@
 }
 
 .app-phase-step--done {
-  background: rgba(45, 197, 110, 0.2);
+  background: rgba(27, 138, 69, 0.2);
   color: var(--green-dark);
 }
 
@@ -583,7 +589,7 @@
 
 .app-stat-card--active {
   border-color: var(--green);
-  box-shadow: 0 0 0 1px rgba(45, 197, 110, 0.25);
+  box-shadow: 0 0 0 1px rgba(27, 138, 69, 0.25);
 }
 
 .app-portal-list {
@@ -615,8 +621,8 @@
 
 .app-portal-card--active {
   border-color: var(--green);
-  background: rgba(45, 197, 110, 0.06);
-  box-shadow: 0 0 0 1px rgba(45, 197, 110, 0.2);
+  background: rgba(27, 138, 69, 0.06);
+  box-shadow: 0 0 0 1px rgba(27, 138, 69, 0.2);
 }
 
 .app-portal-card__head {
@@ -849,7 +855,7 @@
 }
 
 .app-attachment-list__btn:hover {
-  background: rgba(18, 82, 140, 0.06);
+  background: rgba(16, 59, 94, 0.06);
   border-color: var(--blue);
 }
 

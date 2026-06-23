@@ -1,24 +1,26 @@
 :root {
-  /* Бренд Solar Galaxy */
-  --green: #2DC56E;
-  --green-dark: #24a85a;
-  --blue: #12528C;
-  --blue-dark: #0d3d68;
-  --primary: #12528C;
-  --accent: #2DC56E;
-  --accent-dark: #24a85a;
-  --success: #2DC56E;
-  --bg: #f7f9fc;
-  --bg-alt: #eef3f8;
-  --text: #1a2332;
-  --text-muted: #5a6a7e;
+  /* Бренд Solar Galaxy — исламский зелёный, тёмно-жёлтый (золото), тёмно-синий */
+  --green: #1B8A45;
+  --green-dark: #125F31;
+  --blue: #103B5E;
+  --blue-dark: #0A2740;
+  --primary: #103B5E;
+  --accent: #1B8A45;
+  --accent-dark: #125F31;
+  --success: #1B8A45;
+  --yellow: #E3A50B;
+  --yellow-dark: #C2890A;
+  --bg: #f6f8f3;
+  --bg-alt: #eaf1ea;
+  --text: #15281d;
+  --text-muted: #566b5d;
   --white: #fff;
-  --dark: #0f1c2e;
+  --dark: #0A2740;
   --radius: 10px;
   --radius-lg: 12px;
-  --shadow: 0 4px 24px rgba(18, 82, 140, 0.08);
-  --shadow-lg: 0 12px 40px rgba(18, 82, 140, 0.12);
-  --border: #e2e8f0;
+  --shadow: 0 4px 24px rgba(16, 59, 94, 0.08);
+  --shadow-lg: 0 12px 40px rgba(16, 59, 94, 0.12);
+  --border: #dde6dd;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -45,7 +47,7 @@ a { color: inherit; text-decoration: none; }
   white-space: nowrap;
 }
 .btn--primary { background: var(--green); color: var(--white); }
-.btn--primary:hover { background: var(--green-dark); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(45,197,110,0.35); }
+.btn--primary:hover { background: var(--green-dark); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(27,138,69,0.35); }
 .btn--outline { background: transparent; border: 2px solid var(--white); color: var(--white); }
 .btn--outline-light { background: rgba(255,255,255,0.08); border: 2px solid rgba(255,255,255,0.85); color: var(--white); }
 .btn--outline-light:hover { background: rgba(255,255,255,0.16); }
@@ -55,7 +57,7 @@ a { color: inherit; text-decoration: none; }
   font-size: 1rem;
   font-weight: 700;
   padding: 14px 28px;
-  box-shadow: 0 8px 24px rgba(45, 197, 110, 0.35);
+  box-shadow: 0 8px 24px rgba(27, 138, 69, 0.35);
 }
 .btn--cta-hero {
   font-size: 1.0625rem;
@@ -63,8 +65,8 @@ a { color: inherit; text-decoration: none; }
   animation: cta-pulse 2.5s ease-in-out infinite;
 }
 @keyframes cta-pulse {
-  0%, 100% { box-shadow: 0 8px 28px rgba(45, 197, 110, 0.4); }
-  50% { box-shadow: 0 10px 36px rgba(45, 197, 110, 0.55); }
+  0%, 100% { box-shadow: 0 8px 28px rgba(27, 138, 69, 0.4); }
+  50% { box-shadow: 0 10px 36px rgba(27, 138, 69, 0.55); }
 }
 .btn--dark { background: var(--blue); color: var(--white); }
 .btn--dark:hover { background: var(--blue-dark); }
@@ -100,7 +102,7 @@ a { color: inherit; text-decoration: none; }
 }
 .input:focus, .input:focus-visible {
   outline: none; border-color: var(--green);
-  box-shadow: 0 0 0 3px rgba(45, 197, 110, 0.18);
+  box-shadow: 0 0 0 3px rgba(27, 138, 69, 0.18);
 }
 .input::placeholder { color: #9ca3af; }
 .input:disabled, .input[readonly] {

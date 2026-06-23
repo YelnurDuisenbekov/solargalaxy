@@ -217,13 +217,13 @@ export default function TariffChart({ currentTariff, segment }) {
         {/* Подписи роста — верхний ряд: физлица */}
         {hhGrowth.map((g, i) => {
           const x = (householdPts[i].x + householdPts[i + 1].x) / 2;
-          return <GrowthLabel key={`hh-g-${g.year}`} x={x} y={HH_LABEL_Y} pct={g.pct} color="#24a85a" />;
+          return <GrowthLabel key={`hh-g-${g.year}`} x={x} y={HH_LABEL_Y} pct={g.pct} color="#125F31" />;
         })}
 
         {/* Подписи роста — второй ряд: юрлица */}
         {busGrowth.map((g, i) => {
           const x = (businessPts[i].x + businessPts[i + 1].x) / 2;
-          return <GrowthLabel key={`bus-g-${g.year}`} x={x} y={BUS_LABEL_Y} pct={g.pct} color="#12528C" />;
+          return <GrowthLabel key={`bus-g-${g.year}`} x={x} y={BUS_LABEL_Y} pct={g.pct} color="#103B5E" />;
         })}
 
         {currentTariff > 0 && (

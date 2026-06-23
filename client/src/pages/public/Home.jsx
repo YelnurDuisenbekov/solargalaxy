@@ -55,8 +55,8 @@ export default function Home() {
 
           <Reveal delay={0.15}>
             <p>
-              Solar Galaxy проектирует, поставляет и монтирует солнечные электростанции
-              с КПД до 24%. Инжиниринг, автоматизация и нет-митеринг по методологии EPS.
+              Полный цикл <strong>под ключ</strong> — от проекта до пусконаладки.
+              Мониторинг и нет-митеринг по методологии{'\u00A0'}EPS.
             </p>
             <div className="hero__actions">
               <Link to="/about" className="btn btn--outline btn--outline-light">О компании</Link>

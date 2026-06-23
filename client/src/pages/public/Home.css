@@ -14,7 +14,7 @@
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(135deg, rgba(18, 82, 140, 0.88) 0%, rgba(15, 28, 46, 0.82) 100%),
+    linear-gradient(135deg, rgba(16, 59, 94, 0.88) 0%, rgba(15, 28, 46, 0.82) 100%),
     url('https://images.unsplash.com/photo-1509391366360-2e959784a276?w=1600&q=80') center / cover no-repeat;
   z-index: 0;
 }
@@ -32,10 +32,16 @@
 
 .hero p {
   opacity: 0.92;
-  max-width: 580px;
+  max-width: 540px;
   margin: 0 auto 36px;
   font-size: 1.0625rem;
   line-height: 1.6;
+}
+
+.hero p strong {
+  color: var(--yellow);
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .hero__actions {
@@ -125,7 +131,7 @@
   height: 48px;
   margin: 0 auto 14px;
   border-radius: 10px;
-  background: rgba(45, 197, 110, 0.12);
+  background: rgba(27, 138, 69, 0.12);
   color: var(--green);
   display: flex;
   align-items: center;
@@ -182,12 +188,12 @@
 }
 
 .tariff-chart__badge--household {
-  background: rgba(45, 197, 110, 0.15);
+  background: rgba(27, 138, 69, 0.15);
   color: var(--green-dark);
 }
 
 .tariff-chart__badge--business {
-  background: rgba(18, 82, 140, 0.12);
+  background: rgba(16, 59, 94, 0.12);
   color: var(--blue);
 }
 
@@ -392,7 +398,7 @@
 .hero__stat strong {
   display: block;
   font-size: 1.5rem;
-  color: var(--green);
+  color: var(--yellow);
   margin-bottom: 4px;
 }
 
