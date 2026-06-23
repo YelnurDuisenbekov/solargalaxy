@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { proposalsApi, warehouseApi, crmApi } from '../../api';
 import { Reveal } from '../../components/motion/ScrollReveal';
 import { formatMoney, formatNum } from '../../utils/format';
@@ -384,8 +384,36 @@ export function LeadProposalModal({ lead, onClose, onSaved }) {
     return s + i.quantity * i.unitPrice * (1 - d / 100);
   }, 0);
 
+  const prodById = useMemo(
+    () => Object.fromEntries(products.map((p) => [p.id, p])),
+    [products],
+  );
+
+  const stockOf = (item) => {
+    const p = item.productId ? prodById[item.productId] : null;
+    if (p) return p.available ?? p.stock?.available ?? p.stock?.quantity ?? null;
+    if (item.product?.stock) return item.product.stock.available ?? item.product.stock.quantity ?? null;
+    return null;
+  };
+
   const updateItem = (idx, patch) => {
     setItems((prev) => prev.map((row, i) => (i === idx ? { ...row, ...patch } : row)));
+  };
+
+  const changeProduct = (idx, productId) => {
+    if (!productId) {
+      updateItem(idx, { productId: null, product: null });
+      return;
+    }
+    const p = prodById[productId];
+    if (!p) return;
+    updateItem(idx, {
+      productId: p.id,
+      name: p.name,
+      unitPrice: p.price,
+      category: p.kitCategory || 'OTHER',
+      product: p,
+    });
   };
 
   const removeItem = (idx) => {
@@ -451,28 +479,47 @@ export function LeadProposalModal({ lead, onClose, onSaved }) {
           )}
         </p>
         <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginBottom: 16 }}>
-          КП формируется автоматически при создании лида. Измените количество или цену и нажмите «Сохранить».
+          КП формируется автоматически при создании лида. Выберите позицию со склада, измените количество или цену,
+          затем нажмите «Сохранить» — после этого можно отправить КП клиенту.
         </p>
         {error && <p className="error-msg">{error}</p>}
         <div className="table-wrap">
           <table className="table">
             <thead>
               <tr>
-                <th>Позиция</th>
+                <th>Позиция (со склада)</th>
                 <th>Категория</th>
                 <th>Кол-во</th>
+                <th>Остаток</th>
                 <th>Цена</th>
                 <th>Сумма</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {items.map((item, idx) => (
+              {items.map((item, idx) => {
+                const stock = stockOf(item);
+                const shortage = stock != null && Number(item.quantity) > stock;
+                return (
                 <tr key={item.id || idx}>
-                  <td>
+                  <td style={{ minWidth: 240 }}>
+                    <select
+                      className="input input--sm"
+                      value={item.productId || ''}
+                      onChange={(e) => changeProduct(idx, e.target.value)}
+                      style={{ marginBottom: 4 }}
+                    >
+                      <option value="">— своя позиция (без склада) —</option>
+                      {products.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} · {formatMoney(p.price)} · ост. {formatNum(p.available ?? p.stock?.available ?? p.stock?.quantity ?? 0)}
+                        </option>
+                      ))}
+                    </select>
                     <input
                       className="input input--sm"
                       value={item.name}
+                      placeholder="Название в КП"
                       onChange={(e) => updateItem(idx, { name: e.target.value })}
                     />
                   </td>
@@ -487,6 +534,10 @@ export function LeadProposalModal({ lead, onClose, onSaved }) {
                       onChange={(e) => updateItem(idx, { quantity: e.target.value })}
                       style={{ width: 72 }}
                     />
+                  </td>
+                  <td style={{ fontSize: '0.8125rem', color: shortage ? 'var(--danger, #d33)' : 'var(--text-muted)' }}>
+                    {stock == null ? '—' : formatNum(stock)}
+                    {shortage && <span title="Недостаточно на складе"> ⚠</span>}
                   </td>
                   <td>
                     <input
@@ -504,14 +555,15 @@ export function LeadProposalModal({ lead, onClose, onSaved }) {
                     <button type="button" className="btn btn--ghost app-table-btn" onClick={() => removeItem(idx)}>×</button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
               {!items.length && (
-                <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Нет позиций — пересчитайте КП</td></tr>
+                <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Нет позиций — пересчитайте КП</td></tr>
               )}
             </tbody>
             <tfoot>
               <tr>
-                <td colSpan={4} style={{ textAlign: 'right' }}><strong>Итого:</strong></td>
+                <td colSpan={5} style={{ textAlign: 'right' }}><strong>Итого:</strong></td>
                 <td colSpan={2}><strong>{formatMoney(total)}</strong></td>
               </tr>
             </tfoot>
@@ -520,8 +572,12 @@ export function LeadProposalModal({ lead, onClose, onSaved }) {
 
         <form className="app-form-grid" style={{ marginTop: 16 }} onSubmit={addProduct}>
           <select className="input" value={addForm.productId} onChange={(e) => setAddForm({ ...addForm, productId: e.target.value })} required>
-            <option value="">+ Добавить товар</option>
-            {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            <option value="">+ Добавить позицию со склада</option>
+            {products.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name} · {formatMoney(p.price)} · ост. {formatNum(p.available ?? p.stock?.available ?? p.stock?.quantity ?? 0)}
+              </option>
+            ))}
           </select>
           <input className="input" type="number" min="1" value={addForm.quantity} onChange={(e) => setAddForm({ ...addForm, quantity: e.target.value })} />
           <button type="submit" className="btn btn--ghost">Добавить</button>
