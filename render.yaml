@@ -30,7 +30,9 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: CLIENT_URL
-        value: http://localhost:5173,https://client-eta-lovat-29.vercel.app
+        value: http://localhost:5173,https://solargalaxy.kz,https://www.solargalaxy.kz,https://client-eta-lovat-29.vercel.app
+      - key: PUBLIC_SITE_URL
+        value: https://solargalaxy.kz
       - key: WHATSAPP_PROVIDER
         value: green
       - key: GREEN_API_URL

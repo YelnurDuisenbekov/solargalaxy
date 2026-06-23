@@ -1,7 +1,16 @@
 import { sendWhatsAppText } from './whatsappApi.js';
 
 function loginPageUrl() {
-  const base = process.env.CLIENT_URL?.trim() || process.env.PUBLIC_SITE_URL?.trim() || 'http://localhost:5173';
+  const explicit = process.env.PUBLIC_SITE_URL?.trim();
+  const fromList = (process.env.CLIENT_URL || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const base =
+    explicit ||
+    fromList.find((u) => u.startsWith('https://')) ||
+    fromList[0] ||
+    'http://localhost:5173';
   return `${base.replace(/\/$/, '')}/login`;
 }
 
