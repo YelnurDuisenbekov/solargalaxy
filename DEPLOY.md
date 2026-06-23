@@ -2,14 +2,26 @@
 
 ## 1. Backend на Render
 
-1. [render.com](https://render.com) → **New** → **Blueprint**
-2. Подключите репозиторий `YelnurDuisenbekov/solargalaxy`, ветка `main`
-3. Render прочитает `render.yaml` и создаст **PostgreSQL** + **Web Service** `solargalaxy-api`
-4. После создания сервиса откройте **Environment** и задайте (из `server/.env`):
+### Вариант A — Blueprint (рекомендуется)
+
+1. [render.com](https://render.com) → **New → Blueprint**
+2. Репозиторий `YelnurDuisenbekov/solargalaxy`, ветка `main`
+3. При запросе переменных (`sync: false`) вставьте из `server/.env`:
    - `GREEN_API_ID_INSTANCE`
    - `GREEN_API_TOKEN`
-5. Дождитесь успешного деплоя. URL API будет вида:  
-   `https://solargalaxy-api.onrender.com`
+   - `GREEN_API_URL` (например `https://7107.api.greenapi.com`)
+4. **Apply** → дождитесь деплоя (~5–10 мин)
+
+### Вариант B — автоматически через API
+
+После Blueprint создайте API key: Render → **Account Settings → API Keys**
+
+```powershell
+$env:RENDER_API_KEY="rnd_ваш_ключ"
+node scripts/render-provision.mjs
+```
+
+Скрипт пропишет Green API из `server/.env` и перезапустит деплoy.
 
 Проверка: откройте `https://<ваш-api>/api/health` — ответ `{"status":"ok",...}`.
 
