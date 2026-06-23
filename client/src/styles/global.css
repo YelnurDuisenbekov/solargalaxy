@@ -95,8 +95,23 @@ a { color: inherit; text-decoration: none; }
 .input {
   width: 100%; padding: 11px 14px; border: 1.5px solid #d1d5db;
   border-radius: var(--radius); font-family: inherit; font-size: 0.9375rem;
+  background: var(--white); color: inherit; box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-.input:focus { outline: none; border-color: var(--green); }
+.input:focus, .input:focus-visible {
+  outline: none; border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(45, 197, 110, 0.18);
+}
+.input::placeholder { color: #9ca3af; }
+.input:disabled, .input[readonly] {
+  background: #f3f4f6; color: #6b7280; cursor: not-allowed; opacity: 1;
+}
+select.input { cursor: pointer; appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236b7280' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center; padding-right: 34px;
+}
+.input[aria-invalid="true"] { border-color: #b91c1c; }
+.input[aria-invalid="true"]:focus { box-shadow: 0 0 0 3px rgba(185, 28, 28, 0.16); }
 
 .table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
 .table th, .table td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
@@ -122,6 +137,9 @@ textarea.input {
   .container { padding: 0 16px; }
   .section { padding: 56px 0; }
   .card { padding: 20px; }
+  /* iOS зумит поле при фокусе, если font-size < 16px — фиксируем 16px на мобильных */
+  .input, select.input, textarea.input { font-size: 16px; }
+  .input--sm { font-size: 16px; }
 }
 
 @media (max-width: 480px) {

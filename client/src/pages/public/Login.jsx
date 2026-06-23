@@ -146,7 +146,11 @@ export default function Login() {
                   className="input"
                   placeholder="Телефон +7 XXX XXX XXXX"
                   required
+                  autoFocus
                   inputMode="tel"
+                  name="phone"
+                  autoComplete="tel"
+                  aria-label="Телефон"
                   value={clientPhone}
                   onChange={(e) => setClientPhone(formatKzPhone(e.target.value))}
                 />
@@ -155,6 +159,10 @@ export default function Login() {
                   className="input"
                   placeholder="Логин"
                   required
+                  autoFocus
+                  name="login"
+                  autoComplete="username"
+                  aria-label="Логин"
                   value={staffLogin}
                   onChange={(e) => setStaffLogin(e.target.value)}
                 />
@@ -165,6 +173,9 @@ export default function Login() {
                 type="password"
                 placeholder="Пароль"
                 required
+                name="password"
+                autoComplete="current-password"
+                aria-label="Пароль"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -177,17 +188,20 @@ export default function Login() {
             </form>
           ) : (
             <form className="card login-page__form" onSubmit={submitRegister}>
-              <input className="input" placeholder="ФИО" required value={reg.fullName} onChange={(e) => setReg({ ...reg, fullName: e.target.value })} />
+              <input className="input" placeholder="ФИО" required autoFocus name="name" autoComplete="name" aria-label="ФИО" value={reg.fullName} onChange={(e) => setReg({ ...reg, fullName: e.target.value })} />
               <input
                 className="input"
                 placeholder="Телефон +7 XXX XXX XXXX"
                 required
                 inputMode="tel"
+                name="phone"
+                autoComplete="tel"
+                aria-label="Телефон"
                 value={reg.phone}
                 onChange={(e) => setReg({ ...reg, phone: formatKzPhone(e.target.value) })}
               />
-              <input className="input" placeholder="Компания (необяз.)" value={reg.company} onChange={(e) => setReg({ ...reg, company: e.target.value })} />
-              <input className="input" type="password" placeholder="Пароль (мин. 6)" required minLength={6} value={reg.password} onChange={(e) => setReg({ ...reg, password: e.target.value })} />
+              <input className="input" placeholder="Компания (необяз.)" name="organization" autoComplete="organization" aria-label="Компания" value={reg.company} onChange={(e) => setReg({ ...reg, company: e.target.value })} />
+              <input className="input" type="password" placeholder="Пароль (мин. 6)" required minLength={6} name="new-password" autoComplete="new-password" aria-label="Пароль" value={reg.password} onChange={(e) => setReg({ ...reg, password: e.target.value })} />
               {error && <p className="error-msg">{error}</p>}
               {success && <p className="login-page__success">{success}</p>}
               <button type="submit" className="btn btn--primary" disabled={busy}>

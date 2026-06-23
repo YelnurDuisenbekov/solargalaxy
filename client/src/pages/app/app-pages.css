@@ -930,6 +930,7 @@
 
 .app-field { margin-bottom: 4px; }
 .app-field label { display: block; margin-bottom: 4px; font-size: 0.875rem; font-weight: 500; }
+.app-field__req { color: #b91c1c; }
 .app-field__hint { color: var(--text-muted); font-size: 0.8125rem; margin: 4px 0 0; line-height: 1.45; }
 .app-field__error { color: #b91c1c; font-size: 0.8125rem; margin: 4px 0 0; }
 .app-field--error .input { border-color: #b91c1c; box-shadow: 0 0 0 1px #fecaca; }
