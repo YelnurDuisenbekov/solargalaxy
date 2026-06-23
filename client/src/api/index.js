@@ -58,7 +58,7 @@ export async function api(path, options = {}) {
 
   let res;
   try {
-    res = await fetchWithRetry(path, options);
+    res = await fetchWithRetry(path, { ...options, headers });
   } catch {
     throw new ApiError(networkErrorMessage());
   }
