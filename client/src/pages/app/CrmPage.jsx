@@ -135,8 +135,7 @@ export default function CrmPage() {
     try {
       await crmApi.updateLead(lead.id, { status });
       load();
-      if (status === 'LOST') setLeadSubTab('lost');
-      else if (lead.status === 'CONVERTED' || lead.status === 'LOST') setLeadSubTab('active');
+      if (status !== 'LOST' && (lead.status === 'CONVERTED' || lead.status === 'LOST')) setLeadSubTab('active');
     } catch (e) { handleError(e); }
   };
   const markLeadContact = async (lead) => {
