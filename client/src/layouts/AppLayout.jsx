@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { USER_ROLE } from '../utils/crmLabels';
 import { CLIENT_NAV, getNavGroupsForUser } from '../config/navLinks';
@@ -13,7 +13,7 @@ export default function AppLayout() {
   return (
     <div className="app-layout">
       <aside className="app-sidebar">
-        <div className="app-sidebar__brand">Solar<span>Galaxy</span></div>
+        <Link to="/" className="app-sidebar__brand" title="На сайт (кабинет останется открыт)">Solar<span>Galaxy</span></Link>
         <p className="app-sidebar__user">{user?.fullName}</p>
         <span className="app-sidebar__role">{USER_ROLE[user?.role] || user?.role}</span>
 
