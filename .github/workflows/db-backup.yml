@@ -1,0 +1,44 @@
+name: DB Backup (Render → артефакт)
+
+# Ежедневный дамп базы Render в артефакт GitHub (бесплатно, хранится 90 дней).
+# Требуется секрет репозитория DATABASE_URL — внешняя (External) строка подключения
+# из дашборда Render (Settings → Connections → External Database URL).
+
+on:
+  schedule:
+    - cron: '0 2 * * *' # ежедневно в 02:00 UTC (07:00 по Алматы)
+  workflow_dispatch: {}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Установить PostgreSQL client 16 (pg_dump)
+        run: |
+          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-16
+
+      - name: Сделать дамп базы
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "✗ Секрет DATABASE_URL не задан в настройках репозитория."
+            exit 1
+          fi
+          mkdir -p backups
+          STAMP=$(date -u +%Y-%m-%dT%H-%M-%SZ)
+          pg_dump --no-owner --no-acl -Fc -d "$DATABASE_URL" -f "backups/solargalaxy-$STAMP.dump"
+          ls -lh backups
+
+      - name: Загрузить артефакт
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: backups/*.dump
+          retention-days: 90
