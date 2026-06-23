@@ -21,7 +21,7 @@ export default function Login() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const [mode, setMode] = useState('login');
-  const [loginMode, setLoginMode] = useState('client');
+  const [loginMode, setLoginMode] = useState('staff');
   const [clientPhone, setClientPhone] = useState('+7');
   const [staffLogin, setStaffLogin] = useState('');
   const [password, setPassword] = useState('');
@@ -60,11 +60,22 @@ export default function Login() {
     }
     try {
       setBusy(true);
-      const loginName = loginMode === 'client' ? clientPhone : staffLogin;
+      const loginName = loginMode === 'client'
+        ? clientPhone
+        : staffLogin.trim().toLowerCase();
       const u = await login(loginName, password);
       navigate(u?.role === 'CLIENT' ? '/app/portal' : '/app');
     } catch (err) {
-      setError(err.message || 'Не удалось войти');
+      const msg = err.message || 'Не удалось войти';
+      if (msg.includes('Неверные данные')) {
+        if (loginMode === 'client') {
+          setError('Неверный телефон или пароль. Демо: +7 700 000 0060 / klient123. Или вкладка «Сотрудник» для admin.');
+        } else {
+          setError('Неверный логин или пароль. Демо: admin / admin123 (без email).');
+        }
+      } else {
+        setError(msg);
+      }
     } finally {
       setBusy(false);
     }
@@ -193,8 +204,8 @@ export default function Login() {
 
           {mode === 'login' && loginMode === 'client' && (
             <p className="login-page__hint">
-              Телефон из заявки и пароль при регистрации. Нет аккаунта — вкладка «Регистрация».
-              {' '}Если забыли пароль — напишите менеджеру.
+              Телефон из заявки и пароль при регистрации. Демо: <strong>+7 700 000 0060</strong> / <strong>klient123</strong>
+              {' '}· Нет аккаунта — «Регистрация». CRM — вкладка «Сотрудник».
             </p>
           )}
         </Reveal>
