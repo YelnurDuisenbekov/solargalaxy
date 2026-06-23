@@ -4,6 +4,40 @@ import { getMutationFlashMessage } from '../lib/mutationFlash';
 /** На Vercel задайте VITE_API_URL=https://ваш-api-хост (без /api в конце). Локально — proxy /api. */
 const API_ROOT = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 const API = API_ROOT ? `${API_ROOT}/api` : '/api';
+const IS_REMOTE_API = Boolean(API_ROOT);
+const FETCH_TIMEOUT_MS = IS_REMOTE_API ? 120_000 : 30_000;
+const FETCH_RETRIES = IS_REMOTE_API ? 2 : 0;
+
+/** Прогрев Render после «сна» — вызывается при загрузке публичного сайта. */
+export function warmupApi() {
+  if (!API_ROOT) return;
+  fetch(`${API}/health`, { mode: 'cors' }).catch(() => {});
+}
+
+async function fetchWithRetry(path, options) {
+  let lastError;
+  for (let attempt = 0; attempt <= FETCH_RETRIES; attempt += 1) {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try {
+      const res = await fetch(`${API}${path}`, { ...options, signal: controller.signal });
+      window.clearTimeout(timer);
+      return res;
+    } catch (err) {
+      window.clearTimeout(timer);
+      lastError = err;
+      if (attempt < FETCH_RETRIES) {
+        await new Promise((resolve) => { window.setTimeout(resolve, 4000); });
+      }
+    }
+  }
+  throw lastError;
+}
+
+function networkErrorMessage() {
+  if (!IS_REMOTE_API) return 'Сервер API недоступен. Запустите проект: npm run dev';
+  return 'Сервер просыпается (до 1–2 мин на бесплатном тарифе). Подождите и попробуйте снова.';
+}
 
 function getToken() {
   return localStorage.getItem('sg_token');
@@ -24,20 +58,16 @@ export async function api(path, options = {}) {
 
   let res;
   try {
-    res = await fetch(`${API}${path}`, { ...options, headers });
+    res = await fetchWithRetry(path, options);
   } catch {
-    throw new ApiError(
-      API_ROOT
-        ? 'Не удалось связаться с сервером. Проверьте интернет.'
-        : 'Сервер API недоступен. Запустите проект: npm run dev',
-    );
+    throw new ApiError(networkErrorMessage());
   }
 
   const contentType = res.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) {
     throw new ApiError(
-      API_ROOT
-        ? 'Сервер API не отвечает (неверный адрес или сервер выключен).'
+      IS_REMOTE_API
+        ? networkErrorMessage()
         : 'Сервер API недоступен. Запустите backend: npm run dev',
     );
   }

@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { warmupApi } from '../api';
 import FloatingQuoteButton from '../components/FloatingQuoteButton';
 import './PublicLayout.css';
 
@@ -14,6 +15,8 @@ export default function PublicLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => { warmupApi(); }, []);
 
   const closeMenu = () => setMenuOpen(false);
 

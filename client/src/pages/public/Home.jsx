@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import PublicLeadForm, { RegisterPromptModal } from '../../components/lead/PublicLeadForm';
 import { Reveal, RevealGroup, RevealItem } from '../../components/motion/ScrollReveal';
 import { scrollToQuoteForm } from '../../utils/scrollToQuoteForm';
@@ -21,12 +21,14 @@ const STEPS = [
 
 export default function Home() {
   const [registerPrompt, setRegisterPrompt] = useState(null);
+  const location = useLocation();
 
   useEffect(() => {
-    if (window.location.hash !== '#quote-form') return;
-    const t = window.setTimeout(() => scrollToQuoteForm(), 150);
+    const hash = location.hash.replace(/^#/, '');
+    if (hash !== 'quote-form') return;
+    const t = window.setTimeout(() => scrollToQuoteForm(), 250);
     return () => window.clearTimeout(t);
-  }, []);
+  }, [location.pathname, location.hash]);
 
   return (
     <>

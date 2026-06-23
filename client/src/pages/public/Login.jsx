@@ -30,6 +30,7 @@ export default function Login() {
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     const state = location.state || {};
@@ -58,11 +59,14 @@ export default function Login() {
       return;
     }
     try {
+      setBusy(true);
       const loginName = loginMode === 'client' ? clientPhone : staffLogin;
       const u = await login(loginName, password);
       navigate(u?.role === 'CLIENT' ? '/app/portal' : '/app');
     } catch (err) {
       setError(err.message || 'Не удалось войти');
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -70,7 +74,12 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setSuccess('');
+    if (!PHONE_REGEX.test(reg.phone || '')) {
+      setError('Введите телефон полностью: +7 XXX XXX XXXX');
+      return;
+    }
     try {
+      setBusy(true);
       const result = await registerClient({
         fullName: reg.fullName,
         phone: reg.phone,
@@ -81,6 +90,8 @@ export default function Login() {
       setTimeout(() => navigate('/app/portal'), 1200);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -149,7 +160,9 @@ export default function Login() {
 
               {error && <p className="error-msg">{error}</p>}
               {success && <p className="login-page__success">{success}</p>}
-              <button type="submit" className="btn btn--primary">Войти</button>
+              <button type="submit" className="btn btn--primary" disabled={busy}>
+                {busy ? 'Вход…' : 'Войти'}
+              </button>
             </form>
           ) : (
             <form className="card login-page__form" onSubmit={submitRegister}>
@@ -166,13 +179,15 @@ export default function Login() {
               <input className="input" type="password" placeholder="Пароль (мин. 6)" required minLength={6} value={reg.password} onChange={(e) => setReg({ ...reg, password: e.target.value })} />
               {error && <p className="error-msg">{error}</p>}
               {success && <p className="login-page__success">{success}</p>}
-              <button type="submit" className="btn btn--primary">Зарегистрироваться</button>
+              <button type="submit" className="btn btn--primary" disabled={busy}>
+                {busy ? 'Регистрация…' : 'Зарегистрироваться'}
+              </button>
             </form>
           )}
 
           {mode === 'login' && loginMode === 'staff' && (
             <p className="login-page__hint">
-              admin / admin123 · menedzher1 / menedzher123 · klient / klient123
+              admin / admin123 · menedzher1 / menedzher123
             </p>
           )}
 

@@ -11,7 +11,7 @@ export default function FloatingQuoteButton() {
       scrollToQuoteForm();
       return;
     }
-    navigate('/#quote-form');
+    navigate({ pathname: '/', hash: 'quote-form' });
   };
 
   return (
