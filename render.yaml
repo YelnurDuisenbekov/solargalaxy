@@ -14,8 +14,7 @@ services:
     repo: https://github.com/YelnurDuisenbekov/solargalaxy
     branch: main
     rootDir: server
-    buildCommand: npm install && npx prisma generate && npx prisma db push
-    preDeployCommand: node prisma/seed-prod.js
+    buildCommand: npm install && npx prisma generate && npx prisma db push && node prisma/seed-prod.js
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
