@@ -517,11 +517,17 @@
 
 
 
+.public-lead-form__estimate--footer {
+  margin: 0 28px 16px;
+}
+
+
+
 .public-lead-form__estimate-note--footer {
 
   margin: 0 28px 28px;
 
-  padding-top: 4px;
+  padding-top: 0;
 
 }
 

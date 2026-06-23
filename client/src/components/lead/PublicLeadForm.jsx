@@ -251,7 +251,7 @@ export default function PublicLeadForm({
             <TariffChart currentTariff={currentTariff} segment={segment} />
           </div>
 
-          <div className="public-lead-form__section">
+          <div className="public-lead-form__section" id="quote-form">
             <div className="public-lead-form__section-head">
               <span className="public-lead-form__step">1</span>
               <div>
@@ -346,50 +346,9 @@ export default function PublicLeadForm({
               </div>
             </div>
 
-            {estimate && (
-              <div className="public-lead-form__estimate">
-                <h4 className="public-lead-form__estimate-title">Ориентировочный расчёт СЭС</h4>
-                <div className="public-lead-form__metrics">
-                  <div className="public-lead-form__metric">
-                    <span>Потребление</span>
-                    <strong>~{formatNum(estimate.monthlyKwh)} кВт·ч/мес</strong>
-                  </div>
-                  <div className="public-lead-form__metric">
-                    <span>Рекомендуемая мощность</span>
-                    <strong>~{formatNum(estimate.recommendedKw)} кВт</strong>
-                  </div>
-                  <div className="public-lead-form__metric">
-                    <span>Выработка в год</span>
-                    <strong>{formatNum(estimate.annualGenerationKwh)} кВт·ч</strong>
-                  </div>
-                  <div className="public-lead-form__metric">
-                    <span>Экономия в год</span>
-                    <strong>{formatMoney(estimate.annualSaving)}</strong>
-                  </div>
-                  <div className="public-lead-form__metric">
-                    <span>Стоимость «под ключ»</span>
-                    <strong>~{formatMoney(estimate.installCost)}</strong>
-                  </div>
-                  {(estimate.paybackYears != null || estimate.paybackYearsWithTariffGrowth != null) && (
-                    <div className="public-lead-form__metric public-lead-form__metric--payback">
-                      <div className="public-lead-form__payback-labels">
-                        <span>Окупаемость (факт.)</span>
-                        <span title={`С учётом роста тарифа ~${formatNum(estimate.tariffGrowthPct)}% в год`}>
-                          Окупаемость (рост тарифа)
-                        </span>
-                      </div>
-                      <div className="public-lead-form__payback-values">
-                        <strong>{estimate.paybackYears} лет</strong>
-                        <strong>{estimate.paybackYearsWithTariffGrowth} лет</strong>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
 
-          <div className="public-lead-form__section public-lead-form__section--contacts" id="quote-form">
+          <div className="public-lead-form__section public-lead-form__section--contacts">
             <div className="public-lead-form__section-head">
               <span className="public-lead-form__step">2</span>
               <div>
@@ -414,6 +373,48 @@ export default function PublicLeadForm({
           <button type="submit" className="btn btn--primary btn--cta" disabled={saving}>
             {saving ? 'Отправка…' : submitLabel}
           </button>
+
+          {estimate && (
+            <div className="public-lead-form__estimate public-lead-form__estimate--footer">
+              <h4 className="public-lead-form__estimate-title">Ориентировочный расчёт СЭС</h4>
+              <div className="public-lead-form__metrics">
+                <div className="public-lead-form__metric">
+                  <span>Потребление</span>
+                  <strong>~{formatNum(estimate.monthlyKwh)} кВт·ч/мес</strong>
+                </div>
+                <div className="public-lead-form__metric">
+                  <span>Рекомендуемая мощность</span>
+                  <strong>~{formatNum(estimate.recommendedKw)} кВт</strong>
+                </div>
+                <div className="public-lead-form__metric">
+                  <span>Выработка в год</span>
+                  <strong>{formatNum(estimate.annualGenerationKwh)} кВт·ч</strong>
+                </div>
+                <div className="public-lead-form__metric">
+                  <span>Экономия в год</span>
+                  <strong>{formatMoney(estimate.annualSaving)}</strong>
+                </div>
+                <div className="public-lead-form__metric">
+                  <span>Стоимость «под ключ»</span>
+                  <strong>~{formatMoney(estimate.installCost)}</strong>
+                </div>
+                {(estimate.paybackYears != null || estimate.paybackYearsWithTariffGrowth != null) && (
+                  <div className="public-lead-form__metric public-lead-form__metric--payback">
+                    <div className="public-lead-form__payback-labels">
+                      <span>Окупаемость (факт.)</span>
+                      <span title={`С учётом роста тарифа ~${formatNum(estimate.tariffGrowthPct)}% в год`}>
+                        Окупаемость (рост тарифа)
+                      </span>
+                    </div>
+                    <div className="public-lead-form__payback-values">
+                      <strong>{estimate.paybackYears} лет</strong>
+                      <strong>{estimate.paybackYearsWithTariffGrowth} лет</strong>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {estimate && (
             <p className="public-lead-form__estimate-note public-lead-form__estimate-note--footer">
