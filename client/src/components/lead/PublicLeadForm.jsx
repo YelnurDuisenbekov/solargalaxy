@@ -385,17 +385,11 @@ export default function PublicLeadForm({
                     </div>
                   )}
                 </div>
-                <p className="public-lead-form__estimate-note">
-                  Это предварительный расчёт при тарифе {formatTariff(currentTariff)} ₸/кВт·ч, КПД модулей {PANEL_EFFICIENCY_PCT}%
-                  и инсоляции Казахстана. «Рост тарифа» — окупаемость с учётом среднего повышения тарифа по данным 2019–2025.
-                  Точный расчёт произведёт менеджер после получения заявки.
-                  Мощность подставится в заявку — можно изменить ниже.
-                </p>
               </div>
             )}
           </div>
 
-          <div className="public-lead-form__section">
+          <div className="public-lead-form__section public-lead-form__section--contacts" id="quote-form">
             <div className="public-lead-form__section-head">
               <span className="public-lead-form__step">2</span>
               <div>
@@ -420,6 +414,15 @@ export default function PublicLeadForm({
           <button type="submit" className="btn btn--primary btn--cta" disabled={saving}>
             {saving ? 'Отправка…' : submitLabel}
           </button>
+
+          {estimate && (
+            <p className="public-lead-form__estimate-note public-lead-form__estimate-note--footer">
+              Это предварительный расчёт при тарифе {formatTariff(currentTariff)} ₸/кВт·ч, КПД модулей {PANEL_EFFICIENCY_PCT}%
+              и инсоляции Казахстана. «Рост тарифа» — окупаемость с учётом среднего повышения тарифа по данным 2019–2026.
+              Точный расчёт произведёт менеджер после получения заявки.
+              Мощность подставится в заявку — можно изменить выше.
+            </p>
+          )}
         </div>
       ) : (
         <div className="public-lead-form__fields card">

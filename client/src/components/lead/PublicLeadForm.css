@@ -345,7 +345,7 @@
 
 .public-lead-form .btn--cta {
 
-  margin: 0 28px 28px;
+  margin: 0 28px 16px;
 
   width: calc(100% - 56px);
 
@@ -512,6 +512,24 @@
   color: var(--text-muted);
 
   line-height: 1.5;
+
+}
+
+
+
+.public-lead-form__estimate-note--footer {
+
+  margin: 0 28px 28px;
+
+  padding-top: 4px;
+
+}
+
+
+
+#quote-form {
+
+  scroll-margin-top: 72px;
 
 }
 
@@ -724,6 +742,14 @@
     margin: 0 16px 20px;
 
     width: calc(100% - 32px);
+
+  }
+
+
+
+  .public-lead-form__estimate-note--footer {
+
+    margin: 0 16px 20px;
 
   }
 

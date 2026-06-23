@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PublicLeadForm, { RegisterPromptModal } from '../../components/lead/PublicLeadForm';
 import { Reveal, RevealGroup, RevealItem } from '../../components/motion/ScrollReveal';
+import { scrollToQuoteForm } from '../../utils/scrollToQuoteForm';
 import './Home.css';
 
 const SOLUTIONS = [
@@ -20,6 +21,12 @@ const STEPS = [
 
 export default function Home() {
   const [registerPrompt, setRegisterPrompt] = useState(null);
+
+  useEffect(() => {
+    if (window.location.hash !== '#quote-form') return;
+    const t = window.setTimeout(() => scrollToQuoteForm(), 150);
+    return () => window.clearTimeout(t);
+  }, []);
 
   return (
     <>
@@ -73,7 +80,7 @@ export default function Home() {
                 <h3>B2B — коммерческий сегмент</h3>
                 <p>Снижение операционных расходов и защита маржи от роста тарифов Минэнерго.</p>
                 <ul>
-                  <li>IRR 18–25% при текущих тарифах 2025 года</li>
+                  <li>IRR 18–25% при текущих тарифах 2026 года</li>
                   <li>Снижение пиковой нагрузки и платежа за кВт·ч</li>
                   <li>Интеграция с учётными системами предприятия</li>
                   <li>Проекты любой мощности — без ограничений по масштабу</li>

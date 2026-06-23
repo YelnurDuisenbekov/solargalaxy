@@ -30,6 +30,6 @@ export function focusClearPreset(e, { value, preset, onClear }) {
 export const CALC_PRESETS = {
   monthlyBill: 150_000,
   roofArea: 200,
-  tariffBusiness: 44,
-  tariffHousehold: 25.5,
+  tariffBusiness: 48,
+  tariffHousehold: 28,
 };

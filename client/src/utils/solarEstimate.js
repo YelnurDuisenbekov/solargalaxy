@@ -14,7 +14,7 @@ export function calcMonthlyKwh(monthlyBill, tariffPerKwh) {
   return monthlyBill / tariffPerKwh;
 }
 
-/** Средний годовой рост тарифа по истории 2019–2025, доля (0.12 = 12%) */
+/** Средний годовой рост тарифа по истории 2019–2026, доля (0.12 = 12%) */
 export function avgTariffGrowthRate(segment = 'business') {
   const key = segment === 'household' ? 'household' : 'business';
   let sum = 0;

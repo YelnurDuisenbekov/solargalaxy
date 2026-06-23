@@ -1,7 +1,7 @@
 import { formatNum, formatTariff } from '../utils/format';
 
 /* Динамика тарифов по РК (средние значения с НДС, ₸/кВт·ч)
-   Источники: Минэнерго, региональные энергосбытовые компании, 2019–2025 */
+   Источники: Минэнерго, региональные энергосбытовые компании, 2019–2026 */
 export const TARIFF_HISTORY = [
   { year: 2019, household: 16.5, business: 24.0 },
   { year: 2020, household: 17.0, business: 26.5 },
@@ -10,6 +10,7 @@ export const TARIFF_HISTORY = [
   { year: 2023, household: 20.5, business: 36.5 },
   { year: 2024, household: 23.2, business: 40.5 },
   { year: 2025, household: 25.5, business: 44.0 },
+  { year: 2026, household: 28.0, business: 48.0 },
 ];
 
 function growthSinceBase(data, key) {
@@ -105,7 +106,7 @@ export default function TariffChart({ currentTariff, segment }) {
 
   const labelZoneH = 56;
   const chartH = 300;
-  const chartW = 560;
+  const chartW = 620;
   const padL = 44;
   const padR = 16;
   const padT = labelZoneH + 12;

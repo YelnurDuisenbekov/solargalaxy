@@ -1,11 +1,26 @@
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { scrollToQuoteForm } from '../utils/scrollToQuoteForm';
 
 export default function FloatingQuoteButton() {
   const { pathname } = useLocation();
-  const href = pathname === '/' ? '#quote' : '/#quote';
+  const navigate = useNavigate();
+
+  const handleClick = (e) => {
+    e.preventDefault();
+    if (pathname === '/') {
+      scrollToQuoteForm();
+      return;
+    }
+    navigate('/#quote-form');
+  };
 
   return (
-    <a href={href} className="floating-quote-btn" aria-label="Получить расчёт">
+    <a
+      href="/#quote-form"
+      className="floating-quote-btn"
+      aria-label="Получить расчёт"
+      onClick={handleClick}
+    >
       <span className="floating-quote-btn__pulse" aria-hidden />
       <span className="floating-quote-btn__label">Получить расчёт</span>
     </a>
