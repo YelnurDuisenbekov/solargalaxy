@@ -27,7 +27,7 @@ if (!verify.ok) {
 
 const result = await sendGreenApiText(
   phone,
-  'SOLAR GALAXY: WhatsApp API подключён. CRM может отправлять сообщения клиентам автоматически.',
+  'SENERGY: WhatsApp API подключён. CRM может отправлять сообщения клиентам автоматически.',
 );
 
 if (result.sent) {

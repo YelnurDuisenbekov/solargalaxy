@@ -80,7 +80,7 @@ export default function Contact() {
           <Reveal delay={0.1}>
             <div className="contact-map">
               <iframe
-                title="Карта — Solar Galaxy, Шымкент"
+                title="Карта — Senergy, Шымкент"
                 src={`https://yandex.kz/map-widget/v1/?text=${encodeURIComponent(CONTACTS.mapQuery)}&z=17`}
                 allowFullScreen
                 loading="lazy"

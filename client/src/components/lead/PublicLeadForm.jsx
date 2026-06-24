@@ -485,7 +485,7 @@ export function RegisterPromptModal({ lead, onClose }) {
 
           <p style={{ fontSize: '0.9375rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
 
-            Менеджер Solar Galaxy свяжется с вами в ближайшее время.
+            Менеджер Senergy свяжется с вами в ближайшее время.
 
             Заявка уже привязана к вашему личному кабинету — войдите, чтобы видеть статус, расчёт и КП.
 
@@ -519,7 +519,7 @@ export function RegisterPromptModal({ lead, onClose }) {
 
         <p style={{ fontSize: '0.9375rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
 
-          Менеджер Solar Galaxy свяжется с вами в ближайшее время.
+          Менеджер Senergy свяжется с вами в ближайшее время.
 
           Зарегистрируйтесь в личном кабинете — заявка, предварительный расчёт и КП появятся во вкладке «Мои заявки».
 

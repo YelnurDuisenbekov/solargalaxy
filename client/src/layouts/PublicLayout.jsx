@@ -25,9 +25,8 @@ export default function PublicLayout() {
       <header className="public-header">
         <div className="container public-header__inner">
           <Link to="/" className="public-logo" onClick={closeMenu}>
-            <img src="/logo-mark.png" alt="" className="public-logo__mark" />
             <span className="public-logo__text">
-              <span className="public-logo__name">SOLAR GALAXY</span>
+              <span className="public-logo__name">SENERGY</span>
               <span className="public-logo__tagline">CLEAN ENERGY SOLUTIONS</span>
             </span>
           </Link>
@@ -71,8 +70,7 @@ export default function PublicLayout() {
       <FloatingQuoteButton />
       <footer className="public-footer">
         <div className="container public-footer__inner">
-          <img src="/logo-mark.png" alt="" className="public-footer__mark" />
-          <span>© {new Date().getFullYear()} Solar Galaxy — чистая энергия для Казахстана</span>
+          <span>© {new Date().getFullYear()} Senergy — чистая энергия для Казахстана</span>
         </div>
       </footer>
     </div>

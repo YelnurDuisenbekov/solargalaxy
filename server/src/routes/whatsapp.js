@@ -94,7 +94,7 @@ router.post('/test', requirePermission(PERMISSIONS.CRM_EDIT, PERMISSIONS.ADMIN_F
     const { phone, text } = schema.parse(req.body || {});
     const result = await sendWhatsAppText(
       phone,
-      text || 'Тестовое сообщение SOLAR GALAXY — WhatsApp API работает.',
+      text || 'Тестовое сообщение SENERGY — WhatsApp API работает.',
     );
 
     if (!result.sent) {

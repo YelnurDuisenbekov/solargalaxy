@@ -61,7 +61,7 @@ export function buildClientMessage(lead, managerName) {
   return [
     `Здравствуйте, ${firstName}!`,
     '',
-    `Меня зовут ${managerName}, менеджер по продажам SOLAR GALAXY.`,
+    `Меня зовут ${managerName}, менеджер по продажам SENERGY.`,
     '',
     'По вашей заявке:',
     ...lines,
@@ -75,7 +75,7 @@ export function buildQualifiedFollowUpMessage(lead, managerName) {
   return [
     `Здравствуйте, ${firstName}!`,
     '',
-    `Это ${managerName}, менеджер по продажам SOLAR GALAXY.`,
+    `Это ${managerName}, менеджер по продажам SENERGY.`,
     '',
     'Вы интересовались солнечной станцией — готов обсудить детали, ответить на вопросы и подготовить расчёт.',
     'Когда вам удобно созвониться?',
@@ -162,7 +162,7 @@ function templateParamsForKind(kind, lead, managerName) {
 }
 
 export async function sendLeadWhatsAppMessage(lead, { kind = 'initial', managerName } = {}) {
-  const name = managerName || lead.assignee?.fullName || 'Менеджер Solar Galaxy';
+  const name = managerName || lead.assignee?.fullName || 'Менеджер Senergy';
   const cfg = getWhatsAppConfig();
   const text = kind === 'followup'
     ? buildQualifiedFollowUpMessage(lead, name)

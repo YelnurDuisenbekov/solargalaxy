@@ -20,7 +20,7 @@ function formatItemQty(item) {
   return `${qty} ${unit}`;
 }
 
-/** КП для WhatsApp — текстовый шаблон от имени Solar Galaxy. */
+/** КП для WhatsApp — текстовый шаблон от имени Senergy. */
 export function formatProposalWhatsAppMessage(lead, managerName, proposal) {
   const items = proposal?.proposalItems || proposal?.items || [];
   const total = proposalTotal(proposal);
@@ -33,7 +33,7 @@ export function formatProposalWhatsAppMessage(lead, managerName, proposal) {
 
   const lines = [
     `Здравствуйте, ${firstName}!`,
-    '☀️ SOLAR GALAXY',
+    '☀️ SENERGY',
     `Менеджер: ${managerName}`,
     SEP,
     'КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ',

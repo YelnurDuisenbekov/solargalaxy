@@ -57,7 +57,7 @@ app.use((err, _req, res, _next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`SolarGalaxy API → http://localhost:${PORT}`);
+  console.log(`Senergy API → http://localhost:${PORT}`);
   ensureReservationsSynced(true)
     .then(() => console.log('Stock reservations synced'))
     .catch((err) => console.error('Stock reservation sync failed:', err));

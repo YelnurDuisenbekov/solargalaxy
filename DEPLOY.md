@@ -1,4 +1,4 @@
-# Деплой Solar Galaxy (Vercel + Render)
+# Деплой Senergy (Vercel + Render)
 
 ## 1. Backend на Render
 

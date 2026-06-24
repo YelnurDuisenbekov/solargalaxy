@@ -134,7 +134,7 @@ export default function Home() {
         <div className="container">
           <Reveal>
             <span className="section__label">Преимущества</span>
-            <h2 className="section__title">Почему Solar Galaxy</h2>
+            <h2 className="section__title">Почему Senergy</h2>
           </Reveal>
 
           <RevealGroup className="advantages" stagger={0.08}>
