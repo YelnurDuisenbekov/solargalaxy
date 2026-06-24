@@ -154,7 +154,7 @@ export default function Dashboard() {
 
       <Reveal>
 
-        <h1 className="app-page-title">Senergy</h1>
+        <h1 className="app-page-title">Solar Galaxy</h1>
 
         <p className="app-page-desc">Добро пожаловать, {user?.fullName}</p>
 

@@ -43,7 +43,7 @@ function upsertEnv(vars) {
 async function main() {
   console.log(`
 ╔══════════════════════════════════════════════════════════╗
-║  SENERGY — WhatsApp через Green API                 ║
+║  SOLAR GALAXY — WhatsApp через Green API                 ║
 ║  Без Facebook Developer / Meta App                       ║
 ║  Номер: ${BUSINESS_PHONE}                          ║
 ╚══════════════════════════════════════════════════════════╝
@@ -120,7 +120,7 @@ async function main() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chatId,
-        message: 'SENERGY: Green API подключён! CRM может отправлять сообщения автоматически. 🌞',
+        message: 'SOLAR GALAXY: Green API подключён! CRM может отправлять сообщения автоматически. 🌞',
       }),
     });
     const sendData = await sendRes.json().catch(() => ({}));

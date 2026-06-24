@@ -1,7 +1,7 @@
 @echo off
 cd /d "%~dp0"
 echo.
-echo  SENERGY - WhatsApp API setup
+echo  SOLAR GALAXY - WhatsApp API setup
 echo  Nomer: +7 777 475 1332
 echo.
 echo  Otkroetsya Meta Developer Console v brauzere.

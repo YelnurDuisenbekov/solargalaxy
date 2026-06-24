@@ -20,7 +20,14 @@
 .public-logo {
   display: flex;
   align-items: center;
+  gap: 10px;
   flex-shrink: 0;
+}
+
+.public-logo__mark {
+  height: 42px;
+  width: auto;
+  display: block;
 }
 
 .public-logo__text {
@@ -98,6 +105,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 12px;
+}
+
+.public-footer__mark {
+  height: 34px;
+  width: auto;
+  flex-shrink: 0;
 }
 
 @media (max-width: 768px) {

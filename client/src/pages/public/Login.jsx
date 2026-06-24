@@ -110,6 +110,7 @@ export default function Login() {
     <div className="login-page">
       <div className="container login-page__inner">
         <Reveal>
+          <img src="/logo-mark.png" alt="Solar Galaxy" className="login-page__logo" />
           <h1>{mode === 'login' ? 'Вход в систему' : 'Регистрация клиента'}</h1>
           <p className="login-page__desc">
             {mode === 'login'

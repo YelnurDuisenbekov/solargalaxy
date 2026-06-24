@@ -34,7 +34,7 @@ export async function processQualifiedWhatsAppFollowUp({ timeZone = 'Asia/Almaty
   for (const lead of leads) {
     if (!isAutoWhatsAppDue(lead, now)) continue;
 
-    const managerName = lead.assignee?.fullName || 'Менеджер Senergy';
+    const managerName = lead.assignee?.fullName || 'Менеджер Solar Galaxy';
 
     if (isWhatsAppConfigured()) {
       const apiResult = await sendLeadWhatsAppMessage(lead, { kind: 'followup', managerName });

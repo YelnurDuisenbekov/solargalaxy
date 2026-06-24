@@ -54,7 +54,7 @@ function buildLeadDetails(lead, { includeClient = false, includeSource = false }
 function buildHandoffMessage(lead, managerName) {
   const details = buildLeadDetails(lead, { includeClient: true, includeSource: true }).join('\n');
   return [
-    'Senergy — лид для обработки',
+    'Solar Galaxy — лид для обработки',
     '',
     details,
     '',
@@ -73,7 +73,7 @@ function buildClientMessage(lead, managerName, proposal = null) {
   return [
     `Здравствуйте, ${firstName}!`,
     '',
-    `Меня зовут ${managerName}, менеджер по продажам SENERGY.`,
+    `Меня зовут ${managerName}, менеджер по продажам SOLAR GALAXY.`,
     '',
     'По вашей заявке:',
     details,
@@ -90,7 +90,7 @@ function buildQualifiedFollowUpMessage(lead, managerName, proposal = null) {
   return [
     `Здравствуйте, ${firstName}!`,
     '',
-    `Это ${managerName}, менеджер по продажам SENERGY.`,
+    `Это ${managerName}, менеджер по продажам SOLAR GALAXY.`,
     '',
     'Вы интересовались солнечной станцией — готов обсудить детали, ответить на вопросы и подготовить расчёт.',
     'Когда вам удобно созвониться?',
@@ -155,7 +155,7 @@ export function getLeadWhatsAppAction(lead, currentUser, proposal = null) {
   const digits = phoneToWaDigits(lead.phone);
   if (!digits) return { error: 'Некорректный телефон клиента. Формат: +7 XXX XXX XXXX' };
 
-  const managerName = manager?.fullName || currentUser?.fullName || 'Менеджер Senergy';
+  const managerName = manager?.fullName || currentUser?.fullName || 'Менеджер Solar Galaxy';
   const text = buildClientMessage(lead, managerName, proposal);
   return {
     targets: buildWhatsAppTargets(digits, text),
@@ -171,7 +171,7 @@ export function getLeadWhatsAppFollowUpAction(lead, currentUser, proposal = null
   const digits = phoneToWaDigits(lead.phone);
   if (!digits) return { error: 'Некорректный телефон клиента' };
 
-  const managerName = lead.assignee?.fullName || currentUser?.fullName || 'Менеджер Senergy';
+  const managerName = lead.assignee?.fullName || currentUser?.fullName || 'Менеджер Solar Galaxy';
   const text = buildQualifiedFollowUpMessage(lead, managerName, proposal);
   return {
     targets: buildWhatsAppTargets(digits, text),

@@ -2,7 +2,7 @@
   "name": "solargalaxy",
   "version": "0.1.0",
   "private": true,
-  "description": "Senergy — сайт компании, CRM, виртуальный склад",
+  "description": "SolarGalaxy — сайт компании, CRM, виртуальный склад",
   "workspaces": [
     "client",
     "server"

@@ -63,7 +63,7 @@ export default function About() {
       <section className="about-hero">
         <div className="container">
           <Reveal>
-            <h1>О компании Senergy</h1>
+            <h1>О компании Solar Galaxy</h1>
             <p>
               Инжиниринговая компания полного цикла: проектируем, поставляем
               и монтируем солнечные электростанции «под ключ» для бизнеса, частного сектора,
@@ -79,7 +79,7 @@ export default function About() {
             <span className="about-eps__badge">Флагманский проект</span>
             <h2 className="section__title">EPS — Energy Performance System</h2>
             <p className="section__desc">
-              EPS — собственная методология Senergy для внедрения энергонезависимости.
+              EPS — собственная методология Solar Galaxy для внедрения энергонезависимости.
               Мы не просто устанавливаем панели: проектируем систему под реальный профиль
               потребления, подбираем оборудование с КПД до 24%, настраиваем мониторинг
               и подключаем нет-митеринг.
@@ -95,7 +95,7 @@ export default function About() {
             <img
               className="about-eps__img"
               src={IMAGES.eps}
-              alt="Инженеры Senergy на объекте солнечной электростанции"
+              alt="Инженеры Solar Galaxy на объекте солнечной электростанции"
               loading="lazy"
             />
           </Reveal>
@@ -190,7 +190,7 @@ export default function About() {
           <Reveal>
             <h2>Готовы рассчитать окупаемость для вашего объекта?</h2>
             <p>
-              Инженеры Senergy подготовят предварительный расчёт за 1 рабочий день.
+              Инженеры Solar Galaxy подготовят предварительный расчёт за 1 рабочий день.
               г. Шымкент, ул. Байтурсынова 85 (БЦ Орда), каб. 210 · +7 700 330 1999
             </p>
             <Link to="/#quote-form" className="btn btn--primary">Получить расчёт</Link>

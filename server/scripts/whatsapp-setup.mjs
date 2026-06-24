@@ -1,5 +1,5 @@
 /**
- * Настройка WhatsApp Cloud API для SENERGY
+ * Настройка WhatsApp Cloud API для SOLAR GALAXY
  *
  * Использование:
  *   node scripts/whatsapp-setup.mjs
@@ -23,7 +23,7 @@ const TEMPLATES = [
     category: 'MARKETING',
     components: [{
       type: 'BODY',
-      text: 'Здравствуйте, {{1}}!\n\nЭто {{2}} из SENERGY.\n\nВы интересовались солнечной станцией — готов обсудить детали, ответить на вопросы и подготовить расчёт. Когда вам удобно созвониться?',
+      text: 'Здравствуйте, {{1}}!\n\nЭто {{2}} из SOLAR GALAXY.\n\nВы интересовались солнечной станцией — готов обсудить детали, ответить на вопросы и подготовить расчёт. Когда вам удобно созвониться?',
       example: { body_text: [['Айдар', 'Алмас']] },
     }],
   },
@@ -33,7 +33,7 @@ const TEMPLATES = [
     category: 'MARKETING',
     components: [{
       type: 'BODY',
-      text: 'Здравствуйте, {{1}}!\n\nМеня зовут {{2}}, менеджер по продажам SENERGY.\n\nПо вашей заявке: город {{3}}, мощность {{4}}.\n\nГотов ответить на вопросы и подготовить расчёт. Когда вам удобно созвониться?',
+      text: 'Здравствуйте, {{1}}!\n\nМеня зовут {{2}}, менеджер по продажам SOLAR GALAXY.\n\nПо вашей заявке: город {{3}}, мощность {{4}}.\n\nГотов ответить на вопросы и подготовить расчёт. Когда вам удобно созвониться?',
       example: { body_text: [['Айдар', 'Алмас', 'Алматы', '10 кВт']] },
     }],
   },
@@ -158,7 +158,7 @@ function openMetaConsole() {
 }
 
 async function main() {
-  console.log('SENERGY — настройка WhatsApp Cloud API');
+  console.log('SOLAR GALAXY — настройка WhatsApp Cloud API');
   console.log(`Бизнес-номер: ${BUSINESS_PHONE}\n`);
 
   const cli = parseArgs();
@@ -218,7 +218,7 @@ async function main() {
       messaging_product: 'whatsapp',
       to: digits,
       type: 'text',
-      text: { body: 'SENERGY: WhatsApp API подключён и работает! 🌞' },
+      text: { body: 'SOLAR GALAXY: WhatsApp API подключён и работает! 🌞' },
     });
     if (ok) console.log('  ✓ Тестовое сообщение отправлено');
     else console.warn(`  ⚠ ${data.error?.message || 'не удалось отправить (возможно, нужен шаблон вне 24ч окна)'}`);

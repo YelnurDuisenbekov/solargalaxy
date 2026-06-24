@@ -11,6 +11,13 @@
   margin: 0 auto;
 }
 
+.login-page__logo {
+  display: block;
+  height: 76px;
+  width: auto;
+  margin: 0 auto 18px;
+}
+
 .login-page h1 {
   color: var(--primary);
   margin-bottom: 8px;

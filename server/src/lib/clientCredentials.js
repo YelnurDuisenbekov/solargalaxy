@@ -21,7 +21,7 @@ function credentialsMessage({ fullName, phone, login, password }) {
   return [
     `Здравствуйте, ${fullName}!`,
     '',
-    '☀️Добро пожаловать в Senergy!',
+    '☀️Добро пожаловать в Solar Galaxy!',
     '',
     'Вы очень важны для нас — мы ценим ваше доверие и будем рядом на каждом этапе.',
     sep,
