@@ -31,6 +31,8 @@ jobs:
             echo "✗ Секрет DATABASE_URL не задан в настройках репозитория."
             exit 1
           fi
+          export PATH="/usr/lib/postgresql/18/bin:$PATH"
+          pg_dump --version
           mkdir -p backups
           STAMP=$(date -u +%Y-%m-%dT%H-%M-%SZ)
           pg_dump --no-owner --no-acl -Fc -d "$DATABASE_URL" -f "backups/solargalaxy-$STAMP.dump"
