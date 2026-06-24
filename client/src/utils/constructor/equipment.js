@@ -29,3 +29,11 @@ export function findModule(sku) {
 export function findInverter(sku) {
   return INVERTERS.find((i) => i.sku === sku) || DEFAULT_INVERTER;
 }
+
+export function isLongiModule(sku) {
+  return String(sku || '').startsWith('LR');
+}
+
+export function isJinkoModule(sku) {
+  return String(sku || '').toUpperCase().includes('JINKO');
+}

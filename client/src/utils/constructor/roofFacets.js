@@ -1,6 +1,121 @@
 /** Геометрия рёбер крыши и скатов (сторон) для расстановки панелей и 3D */
 
-import { latLngToLocalMeters } from './calc.js';
+import { latLngToLocalMeters, localMetersToLatLng } from './calc.js';
+
+const EPS = 1e-9;
+/** Макс. расстояние клика до периметра для привязки первой/второй точки, м */
+export const EDGE_PERIMETER_SNAP_M = 15;
+
+function dist2d(a, b) {
+  return Math.hypot(b.x - a.x, b.y - a.y);
+}
+
+function pointOnSegment(p, a, b) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  if (len2 < EPS) return dist2d(p, a) < 0.05;
+  const t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2;
+  return t >= -1e-6 && t <= 1 + 1e-6;
+}
+
+function projectPointOnSegment(p, a, b) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  if (len2 < EPS) return { x: a.x, y: a.y };
+  let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  return { x: a.x + t * dx, y: a.y + t * dy };
+}
+
+function infiniteLineSegmentIntersection(lineP1, lineP2, segA, segB) {
+  const inter = lineIntersection(lineP1, lineP2, segA, segB);
+  if (!inter || !pointOnSegment(inter, segA, segB)) return null;
+  return inter;
+}
+
+/** Ближайшая точка на периметре контура (вершина или проекция на сторону) */
+export function snapPointToPerimeter(point, roofPolygon, maxDistM = EDGE_PERIMETER_SNAP_M) {
+  if (!roofPolygon || roofPolygon.length < 3) return point;
+
+  const { refLat, refLng } = getPolygonRef(roofPolygon);
+  const poly = toLocalPolygon(roofPolygon, refLat, refLng);
+  const p = latLngToLocalMeters(point.lat, point.lng, refLat, refLng);
+
+  let best = null;
+  let bestDist = maxDistM;
+
+  for (let i = 0; i < poly.length; i += 1) {
+    const a = poly[i];
+    const b = poly[(i + 1) % poly.length];
+    for (const v of [a, b]) {
+      const d = dist2d(p, v);
+      if (d < bestDist) {
+        bestDist = d;
+        best = v;
+      }
+    }
+    const proj = projectPointOnSegment(p, a, b);
+    const d = dist2d(p, proj);
+    if (d < bestDist) {
+      bestDist = d;
+      best = proj;
+    }
+  }
+
+  if (!best) return point;
+  return localMetersToLatLng(best.x, best.y, refLat, refLng);
+}
+
+/**
+ * Продлевает линию между двумя кликами до пересечения с периметром контура.
+ * Концы ребра ложатся ровно на границу крыши.
+ */
+export function extendEdgeToPerimeter(fromLatLng, toLatLng, roofPolygon) {
+  if (!roofPolygon || roofPolygon.length < 3) {
+    return { from: fromLatLng, to: toLatLng };
+  }
+
+  const { refLat, refLng } = getPolygonRef(roofPolygon);
+  const poly = toLocalPolygon(roofPolygon, refLat, refLng);
+  const p1 = latLngToLocalMeters(fromLatLng.lat, fromLatLng.lng, refLat, refLng);
+  const p2 = latLngToLocalMeters(toLatLng.lat, toLatLng.lng, refLat, refLng);
+
+  if (dist2d(p1, p2) < 0.5) {
+    const snapped = snapPointToPerimeter(fromLatLng, roofPolygon, Infinity);
+    return { from: snapped, to: snapped };
+  }
+
+  const hits = [];
+  for (let i = 0; i < poly.length; i += 1) {
+    const a = poly[i];
+    const b = poly[(i + 1) % poly.length];
+    const inter = infiniteLineSegmentIntersection(p1, p2, a, b);
+    if (inter && !hits.some((h) => dist2d(h, inter) < 0.08)) {
+      hits.push(inter);
+    }
+  }
+
+  if (hits.length >= 2) {
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    hits.sort((a, b) => {
+      const ta = (a.x - p1.x) * dx + (a.y - p1.y) * dy;
+      const tb = (b.x - p1.x) * dx + (b.y - p1.y) * dy;
+      return ta - tb;
+    });
+    return {
+      from: localMetersToLatLng(hits[0].x, hits[0].y, refLat, refLng),
+      to: localMetersToLatLng(hits[hits.length - 1].x, hits[hits.length - 1].y, refLat, refLng),
+    };
+  }
+
+  return {
+    from: snapPointToPerimeter(fromLatLng, roofPolygon, Infinity),
+    to: snapPointToPerimeter(toLatLng, roofPolygon, Infinity),
+  };
+}
 
 export function getPolygonRef(roofPolygon) {
   const refLat = roofPolygon.reduce((s, p) => s + p.lat, 0) / roofPolygon.length;
@@ -203,6 +318,9 @@ export function computeFacets(roofPolygon, roofEdges, pitchDeg, fallbackAzimuth)
 
 export function migrateRidgeToEdges(raw) {
   const state = { ...raw };
+  if (!Array.isArray(state.roofPolygon)) state.roofPolygon = [];
+  if (!Array.isArray(state.obstacles)) state.obstacles = [];
+  if (!Array.isArray(state.panels)) state.panels = [];
   if (!state.roofEdges?.length && state.ridgeLine?.from && state.ridgeLine?.to) {
     state.roofEdges = [{
       id: 'edge-1',

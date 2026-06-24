@@ -1,13 +1,34 @@
 import { useEffect, useRef, useState } from 'react';
 import { loadGoogleMaps } from '../../utils/googleMapsLoader.js';
 import ConstructorMap from './ConstructorMap.jsx';
+import {
+  OBSTACLE_COLORS,
+  findObstacleAt,
+  moveObstacle,
+  obstacleCorners,
+  obstacleEdgeMidpoints,
+  obstacleFootprintPath,
+  resizeObstacleCorner,
+  resizeObstacleEdge,
+} from '../../utils/constructor/obstacles.js';
 
 const MODE_HINT = {
   roof: 'Кликайте по углам крыши на спутнике (минимум 3 точки)',
-  edge: 'Рёбра: две точки на линии ребра (скаты с двух сторон). Можно несколько',
-  obstacle: 'Клик — добавить препятствие',
-  view: 'Просмотр — перемещайте карту',
+  edge: 'Рёбра: две точки — линия продлится до периметра контура',
+  obstacle: 'Клик — новое препятствие · клик по фигуре — выбор · тяните маркеры',
+  view: 'Просмотр — перемещайте карту · клик по препятствию — выбор',
 };
+
+function handleIcon(maps, scale, fill, stroke = '#103B5E', strokeWeight = 2) {
+  return {
+    path: maps.SymbolPath.CIRCLE,
+    scale,
+    fillColor: fill,
+    fillOpacity: 1,
+    strokeColor: stroke,
+    strokeWeight,
+  };
+}
 
 export default function ConstructorGoogleMap({
   lat,
@@ -17,19 +38,36 @@ export default function ConstructorGoogleMap({
   roofEdges,
   edgeDraft,
   obstacles,
+  selectedObstacleId,
   drawMode,
   mapType = 'hybrid',
   flyToKey,
   onMapClick,
   onObstacleAdd,
+  onObstacleSelect,
+  onObstacleUpdate,
 }) {
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
-  const overlaysRef = useRef({ markers: [], polygon: null, edges: [], draft: null, obstacles: [], pin: null });
+  const overlaysRef = useRef({
+    markers: [],
+    polygon: null,
+    edges: [],
+    draft: null,
+    obstacles: [],
+    obstacleHandles: [],
+    pin: null,
+  });
   const drawModeRef = useRef(drawMode);
+  const obstaclesRef = useRef(obstacles);
+  const callbacksRef = useRef({ onObstacleAdd, onObstacleSelect, onObstacleUpdate, onMapClick });
   const [fallback, setFallback] = useState(false);
 
   useEffect(() => { drawModeRef.current = drawMode; }, [drawMode]);
+  useEffect(() => { obstaclesRef.current = obstacles; }, [obstacles]);
+  useEffect(() => {
+    callbacksRef.current = { onObstacleAdd, onObstacleSelect, onObstacleUpdate, onMapClick };
+  }, [onObstacleAdd, onObstacleSelect, onObstacleUpdate, onMapClick]);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,8 +96,21 @@ export default function ConstructorGoogleMap({
         map.addListener('click', (e) => {
           const pos = { lat: e.latLng.lat(), lng: e.latLng.lng() };
           const mode = drawModeRef.current;
-          if (mode === 'roof' || mode === 'edge') onMapClick?.(pos);
-          if (mode === 'obstacle') onObstacleAdd?.(pos);
+          const cb = callbacksRef.current;
+
+          if (mode === 'roof' || mode === 'edge') {
+            cb.onMapClick?.(pos);
+            return;
+          }
+
+          if (mode === 'obstacle' || mode === 'view') {
+            const hit = findObstacleAt(obstaclesRef.current || [], pos.lat, pos.lng);
+            if (hit) {
+              cb.onObstacleSelect?.(hit.id);
+              return;
+            }
+            if (mode === 'obstacle') cb.onObstacleAdd?.(pos);
+          }
         });
 
         mapInstance.current = map;
@@ -98,20 +149,15 @@ export default function ConstructorGoogleMap({
     overlaysRef.current.draft?.setMap(null);
     overlaysRef.current.obstacles.forEach((o) => o.setMap(null));
     overlaysRef.current.obstacles = [];
+    overlaysRef.current.obstacleHandles.forEach((h) => h.setMap(null));
+    overlaysRef.current.obstacleHandles = [];
 
     overlaysRef.current.pin = new maps.Marker({
       map,
       position: { lat, lng },
       title: 'Центр объекта',
       clickable: false,
-      icon: {
-        path: maps.SymbolPath.CIRCLE,
-        scale: 9,
-        fillColor: '#E3A50B',
-        fillOpacity: 1,
-        strokeColor: '#103B5E',
-        strokeWeight: 2,
-      },
+      icon: handleIcon(maps, 9, '#E3A50B'),
       zIndex: 10,
     });
 
@@ -121,14 +167,7 @@ export default function ConstructorGoogleMap({
         position: { lat: p.lat, lng: p.lng },
         clickable: false,
         label: { text: `Ч${i + 1}`, color: '#103B5E', fontWeight: '700', fontSize: '11px' },
-        icon: {
-          path: maps.SymbolPath.CIRCLE,
-          scale: 10,
-          fillColor: '#E3A50B',
-          fillOpacity: 1,
-          strokeColor: '#103B5E',
-          strokeWeight: 2,
-        },
+        icon: handleIcon(maps, 10, '#E3A50B'),
       });
       overlaysRef.current.markers.push(marker);
     });
@@ -139,14 +178,7 @@ export default function ConstructorGoogleMap({
         position: { lat: p.lat, lng: p.lng },
         clickable: false,
         label: { text: String(i + 1), color: '#103B5E', fontWeight: '700', fontSize: '11px' },
-        icon: {
-          path: maps.SymbolPath.CIRCLE,
-          scale: 10,
-          fillColor: '#ffffff',
-          fillOpacity: 1,
-          strokeColor: '#E3A50B',
-          strokeWeight: 2,
-        },
+        icon: handleIcon(maps, 10, '#ffffff', '#E3A50B'),
         title: `Угол ${i + 1}`,
       });
       overlaysRef.current.markers.push(marker);
@@ -196,14 +228,7 @@ export default function ConstructorGoogleMap({
         position: { lat: midLat, lng: midLng },
         clickable: false,
         label: { text: `Р${idx + 1}`, color: '#fff', fontWeight: '700', fontSize: '10px' },
-        icon: {
-          path: maps.SymbolPath.CIRCLE,
-          scale: 8,
-          fillColor: '#103B5E',
-          fillOpacity: 1,
-          strokeColor: '#E3A50B',
-          strokeWeight: 2,
-        },
+        icon: handleIcon(maps, 8, '#103B5E', '#E3A50B'),
       });
       overlaysRef.current.markers.push(label);
     });
@@ -220,20 +245,87 @@ export default function ConstructorGoogleMap({
     }
 
     obstacles?.forEach((obs) => {
-      const circle = new maps.Circle({
+      const colors = OBSTACLE_COLORS[obs.shape] || OBSTACLE_COLORS.tree;
+      const selected = obs.id === selectedObstacleId;
+      const path = obstacleFootprintPath(obs);
+
+      const polygon = new maps.Polygon({
         map,
-        center: { lat: obs.lat, lng: obs.lng },
-        radius: obs.radiusM || 2,
-        strokeColor: '#b91c1c',
-        strokeOpacity: 0.9,
-        strokeWeight: 2,
-        fillColor: '#b91c1c',
-        fillOpacity: 0.28,
-        clickable: false,
+        paths: path,
+        strokeColor: selected ? '#E3A50B' : colors.stroke,
+        strokeOpacity: 0.95,
+        strokeWeight: selected ? 3 : 2,
+        fillColor: colors.fill,
+        fillOpacity: selected ? 0.42 : 0.3,
+        clickable: true,
+        zIndex: selected ? 6 : 3,
       });
-      overlaysRef.current.obstacles.push(circle);
+      polygon.addListener('click', () => callbacksRef.current.onObstacleSelect?.(obs.id));
+      overlaysRef.current.obstacles.push(polygon);
+
+      const shapeLabel = { tree: 'Д', cone: 'К', cylinder: 'Ц', cube: 'Кб' }[obs.shape] || '?';
+      const label = new maps.Marker({
+        map,
+        position: { lat: obs.lat, lng: obs.lng },
+        clickable: false,
+        label: { text: shapeLabel, color: '#fff', fontWeight: '700', fontSize: '10px' },
+        icon: handleIcon(maps, 7, colors.stroke, '#fff', 1),
+        zIndex: 7,
+      });
+      overlaysRef.current.markers.push(label);
+
+      if (!selected) return;
+
+      const centerMarker = new maps.Marker({
+        map,
+        position: { lat: obs.lat, lng: obs.lng },
+        draggable: true,
+        title: 'Переместить',
+        icon: handleIcon(maps, 9, '#E3A50B', '#103B5E', 2),
+        zIndex: 30,
+      });
+      centerMarker.addListener('dragend', (e) => {
+        callbacksRef.current.onObstacleUpdate?.(
+          moveObstacle(obs, e.latLng.lat(), e.latLng.lng()),
+        );
+      });
+      overlaysRef.current.obstacleHandles.push(centerMarker);
+
+      obstacleCorners(obs).forEach((c, idx) => {
+        const m = new maps.Marker({
+          map,
+          position: c,
+          draggable: true,
+          title: 'Угол',
+          icon: handleIcon(maps, 7, '#ffffff', '#103B5E', 2),
+          zIndex: 31,
+        });
+        m.addListener('dragend', (e) => {
+          callbacksRef.current.onObstacleUpdate?.(
+            resizeObstacleCorner(obs, idx, e.latLng.lat(), e.latLng.lng()),
+          );
+        });
+        overlaysRef.current.obstacleHandles.push(m);
+      });
+
+      obstacleEdgeMidpoints(obs).forEach(({ lat: mLat, lng: mLng, edgeIndex }) => {
+        const m = new maps.Marker({
+          map,
+          position: { lat: mLat, lng: mLng },
+          draggable: true,
+          title: 'Ребро',
+          icon: handleIcon(maps, 6, '#93c5fd', '#1e40af', 2),
+          zIndex: 31,
+        });
+        m.addListener('dragend', (e) => {
+          callbacksRef.current.onObstacleUpdate?.(
+            resizeObstacleEdge(obs, edgeIndex, e.latLng.lat(), e.latLng.lng()),
+          );
+        });
+        overlaysRef.current.obstacleHandles.push(m);
+      });
     });
-  }, [roofPolygon, roofRectDraft, roofEdges, edgeDraft, obstacles, lat, lng]);
+  }, [roofPolygon, roofRectDraft, roofEdges, edgeDraft, obstacles, selectedObstacleId, lat, lng]);
 
   if (fallback) {
     return (
@@ -245,11 +337,14 @@ export default function ConstructorGoogleMap({
         roofEdges={roofEdges}
         edgeDraft={edgeDraft}
         obstacles={obstacles}
+        selectedObstacleId={selectedObstacleId}
         drawMode={drawMode}
         mapStyle={mapType}
         flyToKey={flyToKey}
         onMapClick={onMapClick}
         onObstacleAdd={onObstacleAdd}
+        onObstacleSelect={onObstacleSelect}
+        onObstacleUpdate={onObstacleUpdate}
       />
     );
   }
@@ -267,6 +362,8 @@ export default function ConstructorGoogleMap({
         Углов: {roofPolygon?.length || 0}
         {' · '}
         Рёбер: {roofEdges?.length || 0}
+        {' · '}
+        Препятствий: {obstacles?.length || 0}
         {' · '}
         {lat.toFixed(5)}, {lng.toFixed(5)}
       </p>

@@ -14,6 +14,16 @@ import {
 } from '../../components/constructor/useConstructor';
 import { INVERTERS, MODULES } from '../../utils/constructor/equipment';
 import { findModule } from '../../utils/constructor/equipment.js';
+import { extendEdgeToPerimeter, snapPointToPerimeter } from '../../utils/constructor/roofFacets.js';
+import {
+  applyObstacleMetricsPatch,
+  defaultObstacle,
+  finalizeObstacleMetrics,
+  getShapeDefaults,
+  isCircularShape,
+  migrateObstacle,
+  OBSTACLE_SHAPES,
+} from '../../utils/constructor/obstacles.js';
 import { useGoogleMaps } from '../../hooks/useGoogleMaps';
 import './app-pages.css';
 import '../../components/constructor/ConstructorPage.css';
@@ -37,6 +47,14 @@ export default function ConstructorPage() {
   const derived = useConstructorDerived(state);
   const { panels, strings, cables, summary, gridExport, gridRows, gridCols, facets } = derived;
   const selectedPanel = panels.find((p) => p.id === state.selectedPanelId);
+  const selectedObstacle = (state.obstacles || []).find((o) => o.id === state.selectedObstacleId);
+  const obstacleMetrics = selectedObstacle || {
+    shape: state.obstacleShape || 'tree',
+    ...(state.obstaclePreset || getShapeDefaults(state.obstacleShape || 'tree')),
+    rotationDeg: state.obstaclePreset?.rotationDeg ?? 0,
+  };
+  const obstacleMetricsIsPreset = !selectedObstacle;
+  const obstacleIsRound = isCircularShape(obstacleMetrics.shape);
 
   if (!isAdmin && !hasPerm('admin.full')) {
     return <Navigate to="/app" replace />;
@@ -71,12 +89,17 @@ export default function ConstructorPage() {
       }
 
       if (s.drawMode === 'edge') {
-        const draft = [...(s.edgeDraft || []), point];
+        const hasContour = s.roofPolygon.length >= 3;
+        const snapped = hasContour ? snapPointToPerimeter(point, s.roofPolygon) : point;
+        const draft = [...(s.edgeDraft || []), snapped];
         if (draft.length >= 2) {
+          const { from, to } = hasContour
+            ? extendEdgeToPerimeter(draft[0], draft[1], s.roofPolygon)
+            : { from: draft[0], to: draft[1] };
           const newEdge = {
             id: `edge-${Date.now()}`,
-            from: draft[0],
-            to: draft[1],
+            from,
+            to,
             sideAActive: true,
             sideBActive: true,
           };
@@ -95,12 +118,130 @@ export default function ConstructorPage() {
   };
 
   const handleObstacleAdd = ({ lat, lng }) => {
+    setState((s) => {
+      const shape = s.obstacleShape || 'tree';
+      const preset = finalizeObstacleMetrics({
+        shape,
+        ...(s.obstaclePreset || getShapeDefaults(shape)),
+        rotationDeg: s.obstaclePreset?.rotationDeg ?? 0,
+      });
+      const obs = defaultObstacle(shape, lat, lng, preset);
+      return {
+        ...s,
+        obstacles: [...(s.obstacles || []), obs],
+        selectedObstacleId: obs.id,
+      };
+    });
+  };
+
+  const handleObstacleSelect = (id) => {
+    const obs = (state.obstacles || []).find((o) => o.id === id);
+    setTab('site');
+    patch({
+      selectedObstacleId: id,
+      drawMode: 'obstacle',
+      ...(obs ? { obstacleShape: obs.shape } : {}),
+    });
+  };
+
+  const selectObstacleShape = (shapeId) => {
+    const d = getShapeDefaults(shapeId);
+    patch({
+      obstacleShape: shapeId,
+      drawMode: 'obstacle',
+      selectedObstacleId: null,
+      obstaclePreset: {
+        heightM: d.heightM,
+        widthM: d.widthM,
+        lengthM: d.lengthM,
+        rotationDeg: 0,
+      },
+    });
+  };
+
+  const patchObstacleMetrics = (fields, { commit = false } = {}) => {
+    const apply = (base) => (commit ? finalizeObstacleMetrics(applyObstacleMetricsPatch(base, fields)) : applyObstacleMetricsPatch(base, fields));
+
+    if (selectedObstacle) {
+      setState((s) => ({
+        ...s,
+        obstacles: (s.obstacles || []).map((o) => (
+          o.id === selectedObstacle.id ? apply(o) : o
+        )),
+      }));
+      return;
+    }
+    patch({
+      obstaclePreset: apply({ ...state.obstaclePreset, shape: state.obstacleShape }),
+    });
+  };
+
+  const commitObstacleMetrics = () => {
+    if (selectedObstacle) {
+      setState((s) => ({
+        ...s,
+        obstacles: (s.obstacles || []).map((o) => (
+          o.id === selectedObstacle.id ? finalizeObstacleMetrics(o) : o
+        )),
+      }));
+      return;
+    }
+    patch({
+      obstaclePreset: finalizeObstacleMetrics({ ...state.obstaclePreset, shape: state.obstacleShape }),
+    });
+  };
+
+  const metricInputProps = (key) => ({
+    className: 'input input--plain-num',
+    type: 'text',
+    inputMode: 'decimal',
+    value: obstacleMetrics[key] ?? '',
+    onChange: (e) => {
+      const raw = e.target.value.trim().replace(',', '.');
+      if (raw === '') {
+        patchObstacleMetrics({ [key]: null });
+        return;
+      }
+      const n = Number(raw);
+      if (!Number.isNaN(n)) patchObstacleMetrics({ [key]: n });
+    },
+    onBlur: commitObstacleMetrics,
+  });
+
+  const diameterInputProps = () => ({
+    className: 'input input--plain-num',
+    type: 'text',
+    inputMode: 'decimal',
+    value: obstacleMetrics.widthM ?? obstacleMetrics.lengthM ?? '',
+    onChange: (e) => {
+      const raw = e.target.value.trim().replace(',', '.');
+      if (raw === '') {
+        patchObstacleMetrics({ widthM: null, lengthM: null });
+        return;
+      }
+      const n = Number(raw);
+      if (!Number.isNaN(n)) patchObstacleMetrics({ widthM: n, lengthM: n });
+    },
+    onBlur: commitObstacleMetrics,
+  });
+
+  const handleObstacleUpdate = (updated) => {
+    const obs = migrateObstacle(updated);
+    setTab('site');
     setState((s) => ({
       ...s,
-      obstacles: [
-        ...(s.obstacles || []),
-        { id: `obs-${Date.now()}`, lat, lng, heightM: 4, radiusM: 2 },
-      ],
+      drawMode: 'obstacle',
+      obstacleShape: obs.shape,
+      obstacles: (s.obstacles || []).map((o) => (o.id === obs.id ? obs : o)),
+      selectedObstacleId: obs.id,
+    }));
+  };
+
+  const removeObstacle = (id) => {
+    setState((s) => ({
+      ...s,
+      obstacles: (s.obstacles || []).filter((o) => o.id !== id),
+      selectedObstacleId: s.selectedObstacleId === id ? null : s.selectedObstacleId,
     }));
   };
 
@@ -250,7 +391,13 @@ export default function ConstructorPage() {
                     key={mode}
                     type="button"
                     className={`btn btn--sm${state.drawMode === mode ? ' btn--primary' : ' btn--outline-dark'}`}
-                    onClick={() => patch({ drawMode: mode, edgeDraft: [], roofRectDraft: [] })}
+                    onClick={() => {
+                      if (mode === 'obstacle') {
+                        selectObstacleShape(state.obstacleShape || 'tree');
+                      } else {
+                        patch({ drawMode: mode, edgeDraft: [], roofRectDraft: [] });
+                      }
+                    }}
                   >
                     {label}
                   </button>
@@ -293,10 +440,118 @@ export default function ConstructorPage() {
                   {state.roofPolygon.length >= 3 ? ' · Контур готов ✓' : ' · минимум 3'}
                 </p>
               )}
+              {state.drawMode === 'obstacle' && (
+                <>
+                  <div className="constructor-draw-modes" style={{ marginTop: 8 }}>
+                    {OBSTACLE_SHAPES.map(({ id, label, icon }) => (
+                      <button
+                        key={id}
+                        type="button"
+                        className={`btn btn--sm${
+                          (obstacleMetricsIsPreset ? state.obstacleShape === id : selectedObstacle?.shape === id)
+                            ? ' btn--primary'
+                            : ' btn--outline-dark'
+                        }`}
+                        onClick={() => selectObstacleShape(id)}
+                      >
+                        {icon} {label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="constructor-active-hint">
+                    <strong>Препятствие:</strong> выберите тип — ниже появятся метрики.
+                    Клик на карте — новая фигура. Клик по фигуре — редактирование.
+                    {(state.obstacles?.length || 0) > 0 && ` · Всего: ${state.obstacles.length}`}
+                  </p>
+
+                  <div className="constructor-obstacle-editor">
+                    <h3 className="constructor-subsection__title">
+                      {obstacleMetricsIsPreset ? 'Новое препятствие — метрики' : 'Выбранное препятствие'}
+                    </h3>
+                    <div className="constructor-form-grid">
+                      <label>
+                        Высота, м
+                        <input {...metricInputProps('heightM')} />
+                      </label>
+                      {obstacleIsRound ? (
+                        <label>
+                          Диаметр, м
+                          <input {...diameterInputProps()} />
+                        </label>
+                      ) : (
+                        <>
+                          <label>
+                            Ширина, м
+                            <input {...metricInputProps('widthM')} />
+                          </label>
+                          <label>
+                            Длина, м
+                            <input {...metricInputProps('lengthM')} />
+                          </label>
+                        </>
+                      )}
+                      {!obstacleMetricsIsPreset && (
+                        <>
+                          <label>
+                            Широта
+                            <input {...metricInputProps('lat')} />
+                          </label>
+                          <label>
+                            Долгота
+                            <input {...metricInputProps('lng')} />
+                          </label>
+                        </>
+                      )}
+                      {!obstacleIsRound && (
+                        <label>
+                          Поворот, °
+                          <input {...metricInputProps('rotationDeg')} />
+                        </label>
+                      )}
+                </div>
+                    {!obstacleMetricsIsPreset && (
+                      <button
+                        type="button"
+                        className="btn btn--sm btn--outline-dark"
+                        style={{ marginTop: 10 }}
+                        onClick={() => removeObstacle(selectedObstacle.id)}
+                      >
+                        Удалить препятствие
+                      </button>
+                    )}
+                  </div>
+
+                  {(state.obstacles?.length || 0) > 0 && (
+                    <ul className="constructor-obstacle-list">
+                      {(state.obstacles || []).map((obs) => {
+                        const shapeLabel = OBSTACLE_SHAPES.find((s) => s.id === obs.shape)?.label || obs.shape;
+                        const selected = obs.id === state.selectedObstacleId;
+                        return (
+                          <li key={obs.id} className={selected ? 'constructor-obstacle-item--selected' : ''}>
+                            <button
+                              type="button"
+                              className="constructor-obstacle-item__pick"
+                              onClick={() => handleObstacleSelect(obs.id)}
+                            >
+                              <strong>{shapeLabel}</strong>
+                              <span className="constructor-obstacle-item__meta">
+                                h {obs.heightM} · {isCircularShape(obs.shape) ? `⌀ ${obs.widthM}` : `${obs.widthM}×${obs.lengthM}`} м
+                              </span>
+                            </button>
+                            <button type="button" className="btn btn--sm btn--outline-dark" onClick={() => removeObstacle(obs.id)}>
+                              ✕
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </>
+              )}
               {state.drawMode === 'edge' && (
                 <p className="constructor-active-hint">
-                  <strong>Рёбра крыши:</strong> линия, вдоль которой крыша идёт под углом (скаты с двух сторон).
-                  Клик 1 — начало, клик 2 — конец ребра. Можно добавить несколько рёбер.
+                  <strong>Рёбра крыши:</strong> два клика задают направление — линия автоматически продлевается до периметра контура.
+                  Клики рядом с краем крыши привязываются к границе.
                   {state.edgeDraft?.length === 1 && ' · Ждём 2-й клик…'}
                   {(state.roofEdges?.length || 0) > 0 && ` · Рёбер: ${state.roofEdges.length}`}
                 </p>
@@ -356,11 +611,14 @@ export default function ConstructorPage() {
               roofEdges={state.roofEdges}
               edgeDraft={state.edgeDraft}
               obstacles={state.obstacles}
+              selectedObstacleId={state.selectedObstacleId}
               drawMode={state.drawMode}
               mapStyle={state.mapStyle || 'hybrid'}
               flyToKey={state.mapFlyKey}
               onMapClick={handleMapClick}
               onObstacleAdd={handleObstacleAdd}
+              onObstacleSelect={handleObstacleSelect}
+              onObstacleUpdate={handleObstacleUpdate}
             />
           </div>
 
@@ -370,16 +628,75 @@ export default function ConstructorPage() {
 
             <div className="constructor-grid-2">
               <div className="constructor-params">
-                <label>
-                  Уклон крыши, °
-                  <input type="range" min="5" max="60" value={state.pitchDeg} onChange={(e) => patch({ pitchDeg: +e.target.value })} />
-                  <span>{state.pitchDeg}°</span>
-                </label>
-                <label>
-                  Азимут ската, ° (180 = юг)
-                  <input type="range" min="0" max="359" value={state.azimuthDeg} onChange={(e) => patch({ azimuthDeg: +e.target.value })} />
-                  <span>{state.azimuthDeg}°</span>
-                </label>
+                <div className="constructor-form-grid constructor-params__grid">
+                  <label>
+                    Уклон крыши, °
+                    <input
+                      className="input input--plain-num"
+                      type="text"
+                      inputMode="decimal"
+                      value={state.pitchDeg}
+                      onChange={(e) => {
+                        const raw = e.target.value.trim().replace(',', '.');
+                        if (raw === '') return;
+                        const v = Number(raw);
+                        if (!Number.isNaN(v)) patch({ pitchDeg: v });
+                      }}
+                      onBlur={(e) => {
+                        const v = Number(e.target.value.replace(',', '.'));
+                        if (Number.isNaN(v)) patch({ pitchDeg: 25 });
+                        else patch({ pitchDeg: Math.min(60, Math.max(5, v)) });
+                      }}
+                    />
+                  </label>
+                  <label>
+                    Азимут ската, °
+                    <input
+                      className="input input--plain-num"
+                      type="text"
+                      inputMode="decimal"
+                      value={state.azimuthDeg}
+                      disabled={(state.roofEdges?.length || 0) > 0}
+                      title={(state.roofEdges?.length || 0) > 0 ? 'При рёбрах азимут считается автоматически для каждого ската' : '180° = юг'}
+                      onChange={(e) => {
+                        const raw = e.target.value.trim().replace(',', '.');
+                        if (raw === '') return;
+                        const v = Number(raw);
+                        if (!Number.isNaN(v)) patch({ azimuthDeg: v });
+                      }}
+                      onBlur={(e) => {
+                        const v = Number(e.target.value.replace(',', '.'));
+                        if (Number.isNaN(v)) patch({ azimuthDeg: 180 });
+                        else patch({ azimuthDeg: ((Math.round(v) % 360) + 360) % 360 });
+                      }}
+                    />
+                  </label>
+                  <label>
+                    Высота крыши от земли, м
+                    <input
+                      className="input input--plain-num"
+                      type="text"
+                      inputMode="decimal"
+                      title="Высота карниза / основания крыши над уровнем земли"
+                      value={state.roofBaseHeightM ?? 0}
+                      onChange={(e) => {
+                        const raw = e.target.value.trim().replace(',', '.');
+                        if (raw === '') return;
+                        const v = Number(raw);
+                        if (!Number.isNaN(v)) patch({ roofBaseHeightM: v });
+                      }}
+                      onBlur={(e) => {
+                        const v = Number(e.target.value.replace(',', '.'));
+                        if (Number.isNaN(v)) patch({ roofBaseHeightM: 0 });
+                        else patch({ roofBaseHeightM: Math.min(80, Math.max(0, v)) });
+                      }}
+                    />
+                  </label>
+                </div>
+                <p className="constructor-params__note">
+                  Высота от земли — до карниза. Конёк выше на величину, зависящую от уклона и размера крыши.
+                  {(state.roofEdges?.length || 0) === 0 && ' 180° = юг (азимут без рёбер).'}
+                </p>
                 {facets.length > 0 && (
                   <ul className="constructor-facet-list">
                     {facets.map((f) => (
@@ -401,23 +718,34 @@ export default function ConstructorPage() {
                     {(state.roofEdges?.length || 0) || '—'}
                     {facets.length > 0 ? ` / ${facets.length} скатов` : ''}
                   </dd>
+                  <dt>Карниз от земли</dt>
+                  <dd>{state.roofPolygon.length >= 3 ? `${state.roofBaseHeightM ?? 0} м` : '—'}</dd>
                   <dt>Панелей (расчёт)</dt>
                   <dd>{summary.activePanelCount || '—'}</dd>
                 </dl>
               </div>
               <div className="constructor-3d-block">
-                <h3 className="constructor-subsection__title">3D-превью</h3>
+                <h3 className="constructor-subsection__title">3D-модель крыши</h3>
                 <Constructor3D
                   roofPolygon={state.roofPolygon}
                   roofEdges={state.roofEdges}
-                  facets={facets}
                   pitchDeg={state.pitchDeg}
                   azimuthDeg={state.azimuthDeg}
-                  moduleWidthM={derived.module.widthM}
-                  moduleHeightM={derived.module.heightM}
-                  activePanels={panels}
-                  selectedPanelId={state.selectedPanelId}
+                  roofBaseHeightM={state.roofBaseHeightM ?? 0}
+                  obstacles={state.obstacles}
                   hasRoof={state.roofPolygon.length >= 3}
+                  panels={panels}
+                  module={derived.module}
+                  panelsVisible3d={state.panelsVisible3d}
+                  panelMountMode={state.panelMountMode}
+                  panelMountTiltDeg={state.panelMountTiltDeg}
+                  panelLayout={state.panelLayout}
+                  moduleSku={state.moduleSku}
+                  onAddPanels={() => patch({ panels: [], panelsVisible3d: true })}
+                  onMountModeChange={(mode) => patch({ panelMountMode: mode })}
+                  onMountTiltChange={(panelMountTiltDeg) => patch({ panelMountTiltDeg })}
+                  onLayoutChange={(panelLayout) => patch({ panelLayout })}
+                  onModuleChange={(moduleSku) => patch({ moduleSku, panels: [] })}
                 />
               </div>
             </div>
@@ -543,38 +871,31 @@ export default function ConstructorPage() {
       )}
 
       {tab === 'shading' && (
-        <div className="card app-section-card">
-          <h2 className="app-section-card__title">Затенение</h2>
-          <p className="app-page-desc">
-            Отметьте препятствия на карте (режим «Препятствие»). Высота и радиус редактируются ниже.
-            Расчёт упрощённый — для точности нужен LiDAR или ручная 3D-модель (этап 2).
-          </p>
-          <p>Средние потери от тени: <strong>{summary.avgShadeLossPct}%</strong></p>
-          <ul className="constructor-obstacle-list">
-            {(state.obstacles || []).map((obs) => (
-              <li key={obs.id}>
-                <span>{obs.lat.toFixed(5)}, {obs.lng.toFixed(5)}</span>
-                <label>
-                  h, м
-                  <input className="input" type="number" min="1" max="30" value={obs.heightM} onChange={(e) => patch({ obstacles: state.obstacles.map((o) => o.id === obs.id ? { ...o, heightM: +e.target.value } : o) })} />
-                </label>
-                <label>
-                  r, м
-                  <input className="input" type="number" min="0.5" max="20" step="0.5" value={obs.radiusM} onChange={(e) => patch({ obstacles: state.obstacles.map((o) => o.id === obs.id ? { ...o, radiusM: +e.target.value } : o) })} />
-                </label>
-                <button type="button" className="btn btn--sm btn--outline-dark" onClick={() => patch({ obstacles: state.obstacles.filter((o) => o.id !== obs.id) })}>Удалить</button>
-              </li>
-            ))}
-          </ul>
+        <div className="constructor-stack">
+          <div className="card app-section-card">
+            <h2 className="app-section-card__title">Затенение</h2>
+            <p className="app-page-desc">
+              Препятствия добавляются на вкладке «Участок и крыша» (режим «③ Препятствие»).
+              Метрики и позиция редактируются там при выборе типа или клике по фигуре на карте.
+            </p>
+            <p>Средние потери от тени: <strong>{summary.avgShadeLossPct}%</strong></p>
+            <p className="constructor-params__note">
+              Препятствий на карте: <strong>{state.obstacles?.length || 0}</strong>
+            </p>
+          </div>
+
           {panels.filter((p) => p.shadeLossPct > 5).length > 0 && (
-            <table className="app-table">
-              <thead><tr><th>Панель</th><th>Строка</th><th>Потери, %</th></tr></thead>
-              <tbody>
-                {panels.filter((p) => p.active && p.shadeLossPct > 5).map((p) => (
-                  <tr key={p.id}><td>{p.id}</td><td>{p.stringId}</td><td>{p.shadeLossPct}%</td></tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="card app-section-card">
+              <h3 className="constructor-subsection__title">Панели с заметной тенью</h3>
+              <table className="app-table">
+                <thead><tr><th>Панель</th><th>Строка</th><th>Потери, %</th></tr></thead>
+                <tbody>
+                  {panels.filter((p) => p.active && p.shadeLossPct > 5).map((p) => (
+                    <tr key={p.id}><td>{p.id}</td><td>{p.stringId}</td><td>{p.shadeLossPct}%</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}

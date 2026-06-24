@@ -7,6 +7,7 @@ import {
   getPolygonRef,
   isPointInActiveRegion,
 } from './roofFacets.js';
+import { obstacleShadowRadius } from './obstacles.js';
 
 const PEAK_SUN_HOURS = 4.8;
 const PERFORMANCE_RATIO = 0.78;
@@ -20,6 +21,15 @@ export function latLngToLocalMeters(lat, lng, refLat, refLng) {
   return {
     x: (lng - refLng) * mPerDegLng,
     y: (lat - refLat) * mPerDegLat,
+  };
+}
+
+export function localMetersToLatLng(x, y, refLat, refLng) {
+  const mPerDegLat = 111_320;
+  const mPerDegLng = 111_320 * Math.cos((refLat * Math.PI) / 180);
+  return {
+    lat: refLat + y / mPerDegLat,
+    lng: refLng + x / mPerDegLng,
   };
 }
 
@@ -50,7 +60,7 @@ function pointInPolygon(x, y, polygon) {
 }
 
 /** Авто-генерация сетки панелей внутри полигона крыши и активных скатов */
-export function generatePanelGrid({ roofPolygon, roofEdges, pitchDeg, module, existingPanels }) {
+export function generatePanelGrid({ roofPolygon, roofEdges, pitchDeg, module, panelLayout, existingPanels }) {
   if (!roofPolygon || roofPolygon.length < 3) return [];
 
   const { refLat, refLng } = getPolygonRef(roofPolygon);
@@ -64,8 +74,12 @@ export function generatePanelGrid({ roofPolygon, roofEdges, pitchDeg, module, ex
   const maxY = Math.max(...ys);
 
   const pitchFactor = Math.cos((pitchDeg * Math.PI) / 180);
-  const effW = module.widthM + PANEL_GAP_M;
-  const effH = (module.heightM + PANEL_GAP_M) / (pitchFactor || 1);
+  const isVertical = panelLayout === 'vertical' || panelLayout === 'along';
+  // По оси Y (вдоль ската) сторона укорачивается из-за проекции на план
+  const acrossM = isVertical ? module.heightM : module.widthM; // вдоль карниза (X)
+  const alongM = isVertical ? module.widthM : module.heightM; // вдоль ската (Y)
+  const effW = acrossM + PANEL_GAP_M;
+  const effH = (alongM + PANEL_GAP_M) / (pitchFactor || 1);
 
   const cols = Math.floor((maxX - minX) / effW);
   const rows = Math.floor((maxY - minY) / effH);
@@ -115,9 +129,10 @@ export function calcShadingForPanel(panel, panelCenters, obstacles, pitchDeg) {
     const dx = center.x - obs.x;
     const dy = center.y - obs.y;
     const dist = Math.sqrt(dx * dx + dy * dy) || 0.1;
+    const radiusM = obstacleShadowRadius(obs);
     const shadowLen = obs.heightM / Math.tan(sunElevRad);
-    if (dist < shadowLen + obs.radiusM) {
-      const factor = Math.max(0, 1 - dist / (shadowLen + obs.radiusM));
+    if (dist < shadowLen + radiusM) {
+      const factor = Math.max(0, 1 - dist / (shadowLen + radiusM));
       loss = Math.min(100, loss + factor * 60);
     }
   });
