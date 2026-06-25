@@ -11,10 +11,12 @@ import {
   resizeObstacleCorner,
   resizeObstacleEdge,
 } from '../../utils/constructor/obstacles.js';
+import { edgeLinePathLatLng } from '../../utils/constructor/roofFacets.js';
 
 const MODE_HINT = {
   roof: 'Кликайте по углам крыши на спутнике (минимум 3 точки)',
-  edge: 'Рёбра: две точки — линия продлится до периметра контура',
+  edge: 'Рёбра: перпендикулярный — клик по краю; свободный — 2 точки до периметра',
+  azimuth: 'Азимут: 2 клика — хвост и направление стрелки (можно кликать снова для правки)',
   obstacle: 'Клик — новое препятствие · клик по фигуре — выбор · тяните маркеры',
   view: 'Просмотр — перемещайте карту · клик по препятствию — выбор',
 };
@@ -37,6 +39,8 @@ export default function ConstructorGoogleMap({
   roofRectDraft,
   roofEdges,
   edgeDraft,
+  azimuthArrow,
+  azimuthDraft,
   obstacles,
   selectedObstacleId,
   drawMode,
@@ -54,6 +58,7 @@ export default function ConstructorGoogleMap({
     polygon: null,
     edges: [],
     draft: null,
+    azimuth: null,
     obstacles: [],
     obstacleHandles: [],
     pin: null,
@@ -98,7 +103,7 @@ export default function ConstructorGoogleMap({
           const mode = drawModeRef.current;
           const cb = callbacksRef.current;
 
-          if (mode === 'roof' || mode === 'edge') {
+          if (mode === 'roof' || mode === 'edge' || mode === 'azimuth') {
             cb.onMapClick?.(pos);
             return;
           }
@@ -147,6 +152,8 @@ export default function ConstructorGoogleMap({
     overlaysRef.current.edges.forEach((e) => e.setMap(null));
     overlaysRef.current.edges = [];
     overlaysRef.current.draft?.setMap(null);
+    overlaysRef.current.azimuth?.setMap(null);
+    overlaysRef.current.azimuth = null;
     overlaysRef.current.obstacles.forEach((o) => o.setMap(null));
     overlaysRef.current.obstacles = [];
     overlaysRef.current.obstacleHandles.forEach((h) => h.setMap(null));
@@ -199,6 +206,7 @@ export default function ConstructorGoogleMap({
       overlaysRef.current.polygon = new maps.Polyline({
         map,
         path: roofPolygon.map((p) => ({ lat: p.lat, lng: p.lng })),
+        geodesic: false,
         strokeColor: '#1B8A45',
         strokeOpacity: 0.9,
         strokeWeight: 2,
@@ -210,10 +218,8 @@ export default function ConstructorGoogleMap({
       if (!edge.from || !edge.to) return;
       const line = new maps.Polyline({
         map,
-        path: [
-          { lat: edge.from.lat, lng: edge.from.lng },
-          { lat: edge.to.lat, lng: edge.to.lng },
-        ],
+        path: edgeLinePathLatLng(edge.from, edge.to, roofPolygon),
+        geodesic: false,
         strokeColor: '#103B5E',
         strokeOpacity: 1,
         strokeWeight: 4,
@@ -236,11 +242,43 @@ export default function ConstructorGoogleMap({
     if (edgeDraft?.length) {
       overlaysRef.current.draft = new maps.Polyline({
         map,
-        path: edgeDraft.map((p) => ({ lat: p.lat, lng: p.lng })),
+        path: edgeDraft.length >= 2
+          ? edgeLinePathLatLng(edgeDraft[0], edgeDraft[1], roofPolygon)
+          : edgeDraft.map((p) => ({ lat: p.lat, lng: p.lng })),
+        geodesic: false,
         strokeColor: '#103B5E',
         strokeOpacity: 0.7,
         strokeWeight: 3,
         clickable: false,
+      });
+    }
+
+    const arrow = azimuthArrow;
+    if (arrow?.from && arrow?.to) {
+      overlaysRef.current.azimuth = new maps.Polyline({
+        map,
+        path: edgeLinePathLatLng(arrow.from, arrow.to, roofPolygon, 32),
+        geodesic: false,
+        strokeColor: '#E3A50B',
+        strokeOpacity: 1,
+        strokeWeight: 4,
+        clickable: false,
+        icons: [{
+          icon: { path: maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 4, strokeColor: '#E3A50B', fillColor: '#E3A50B', fillOpacity: 1 },
+          offset: '100%',
+        }],
+        zIndex: 8,
+      });
+    } else if (azimuthDraft?.length === 1) {
+      overlaysRef.current.azimuth = new maps.Polyline({
+        map,
+        path: edgeLinePathLatLng(azimuthDraft[0], { lat, lng }, roofPolygon, 16),
+        geodesic: false,
+        strokeColor: '#E3A50B',
+        strokeOpacity: 0.7,
+        strokeWeight: 3,
+        clickable: false,
+        zIndex: 7,
       });
     }
 
@@ -350,7 +388,7 @@ export default function ConstructorGoogleMap({
   }
 
   const edgeHint = drawMode === 'edge'
-    ? ` — точка ${Math.min((edgeDraft?.length || 0) + 1, 2)} из 2`
+    ? ' — клик по контуру или 2 точки (свободный)'
     : '';
 
   return (

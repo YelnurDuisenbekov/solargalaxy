@@ -39,6 +39,7 @@ export default function Constructor3D({
   roofEdges,
   pitchDeg,
   azimuthDeg,
+  facetAzimuthOverrides,
   roofBaseHeightM,
   obstacles,
   hasRoof,
@@ -54,6 +55,10 @@ export default function Constructor3D({
   onMountTiltChange,
   onLayoutChange,
   onModuleChange,
+  onEdgeSideChange,
+  facets,
+  selectedFacetId,
+  onFacetSelect,
 }) {
   const rootRef = useRef(null);
   const wrapRef = useRef(null);
@@ -177,7 +182,7 @@ export default function Constructor3D({
 
     const geomFingerprint = [
       roofPolygon.map((p) => `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`).join('|'),
-      (roofEdges || []).map((e) => `${e.id}:${e.from?.lat},${e.from?.lng}-${e.to?.lat},${e.to?.lng}`).join('|'),
+      (roofEdges || []).map((e) => `${e.id}:${e.from?.lat},${e.from?.lng}-${e.to?.lat},${e.to?.lng}:${e.sideAActive !== false}:${e.sideBActive !== false}`).join('|'),
       pitchDeg,
       azimuthDeg,
       roofBaseHeightM,
@@ -190,6 +195,7 @@ export default function Constructor3D({
       Number(pitchDeg),
       azimuthDeg,
       Number(roofBaseHeightM) || 0,
+      facetAzimuthOverrides || {},
     );
     if (!data) {
       setMeshInfo(null);
@@ -234,19 +240,30 @@ export default function Constructor3D({
 
     if (data.facetGroups?.length > 0) {
       data.facetGroups.forEach((fg) => {
+        const facetMeta = data.facets?.find((f) => f.id === fg.id);
+        const isActive = facetMeta?.active !== false;
+        const isSelected = selectedFacetId === fg.id;
         const byteStart = fg.startIndex * 3;
         const byteCount = fg.count * 3;
         const geo = new THREE.BufferGeometry();
         geo.setAttribute('position', new THREE.Float32BufferAttribute(data.vertices.slice(byteStart, byteStart + byteCount), 3));
         geo.setAttribute('normal', new THREE.Float32BufferAttribute(data.normals.slice(byteStart, byteStart + byteCount), 3));
         geo.computeBoundingSphere();
+        let color = fg.color;
+        if (isSelected) color = 0xc9a227;
+        else if (!isActive) color = 0x94a3b8;
         roofGroup.add(new THREE.Mesh(
           geo,
           new THREE.MeshStandardMaterial({
-            color: fg.color,
+            color,
             roughness: 0.82,
-            metalness: 0.05,
+            metalness: isSelected ? 0.12 : 0.05,
             flatShading: true,
+            transparent: !isActive,
+            opacity: !isActive ? 0.38 : 1,
+            depthWrite: isActive,
+            emissive: isSelected ? 0x5c4a14 : 0x000000,
+            emissiveIntensity: isSelected ? 0.35 : 0,
           }),
         ));
       });
@@ -331,9 +348,10 @@ export default function Constructor3D({
       geomFingerprintRef.current = geomFingerprint;
     }
     engine.resize();
-  }, [ready, roofPolygon, roofEdges, pitchDeg, azimuthDeg, roofBaseHeightM, obstacles, hasRoof, panels, module, moduleSku, panelsVisible3d, panelMountMode, panelMountTiltDeg, panelLayout]);
+  }, [ready, roofPolygon, roofEdges, pitchDeg, azimuthDeg, roofBaseHeightM, obstacles, hasRoof, panels, module, moduleSku, panelsVisible3d, panelMountMode, panelMountTiltDeg, panelLayout, selectedFacetId]);
 
   const edgeCount = roofEdges?.length || 0;
+  const facetList = facets?.length ? facets : [];
   const activePanelCount = panels?.filter((p) => p.active).length || 0;
   const isSurface = panelMountMode === 'surface' || panelMountMode === 'flush';
   const layoutLabel = panelLayout === 'vertical' ? 'вертикально' : 'горизонтально';
@@ -343,10 +361,30 @@ export default function Constructor3D({
 
   const longiModules = MODULES.filter((m) => m.sku.startsWith('LR'));
   const jinkoModules = MODULES.filter((m) => m.sku.includes('JINKO'));
+  const displayAzimuth = (() => {
+    if (selectedFacetId && facetList.length) {
+      const f = facetList.find((x) => x.id === selectedFacetId);
+      if (f?.azimuthDeg != null) return f.azimuthDeg;
+    }
+    return azimuthDeg ?? 180;
+  })();
 
   return (
     <div ref={rootRef} className={`constructor-3d-wrap${fullscreen ? ' constructor-3d-wrap--fullscreen' : ''}`}>
       <div ref={wrapRef} className="constructor-3d">
+        <div className="constructor-3d__compass" aria-label="Компас">
+          <div className="constructor-3d__compass-ring">
+            <span className="constructor-3d__compass-n">N</span>
+            <span className="constructor-3d__compass-e">E</span>
+            <span className="constructor-3d__compass-s">S</span>
+            <span className="constructor-3d__compass-w">W</span>
+            <div className="constructor-3d__compass-arrow" style={{ transform: `rotate(${displayAzimuth}deg)` }}>
+              <span className="constructor-3d__compass-arrow-head" />
+              <span className="constructor-3d__compass-arrow-tail" />
+            </div>
+          </div>
+          <div className="constructor-3d__compass-meta">{displayAzimuth}°</div>
+        </div>
         <div className="constructor-3d__toolbar">
           <div className="constructor-3d__toolbar-row">
             <button
@@ -441,6 +479,67 @@ export default function Constructor3D({
               </button>
             </div>
           </div>
+          {facetList.length > 0 && (
+            <div className="constructor-3d__toolbar-row constructor-3d__facet-row">
+              <span className="constructor-3d__facet-label">Панели на</span>
+              <div className="constructor-3d__facet-btns" role="group" aria-label="Выбор ската для панелей">
+                {facetList.length > 1 && (
+                  <button
+                    type="button"
+                    className={`constructor-3d__tool-btn constructor-3d__tool-btn--facet${!selectedFacetId ? ' constructor-3d__tool-btn--active' : ''}`}
+                    onClick={() => onFacetSelect?.(null)}
+                    title="Заполнить все активные скаты"
+                  >
+                    Все
+                  </button>
+                )}
+                {facetList.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    disabled={f.active === false}
+                    className={[
+                      'constructor-3d__tool-btn',
+                      'constructor-3d__tool-btn--facet',
+                      selectedFacetId === f.id ? 'constructor-3d__tool-btn--active' : '',
+                      f.active === false ? 'constructor-3d__tool-btn--off' : '',
+                    ].filter(Boolean).join(' ')}
+                    onClick={() => onFacetSelect?.(selectedFacetId === f.id ? null : f.id)}
+                    title={f.active === false ? 'Скат выключен' : `Расставить панели на скате ${f.label}`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {edgeCount > 0 && (
+            <div className="constructor-3d__toolbar-row constructor-3d__facet-row">
+              <span className="constructor-3d__facet-label">Видимость</span>
+              <div className="constructor-3d__facet-btns" role="group" aria-label="Включение сторон скатов">
+                {roofEdges.map((edge, idx) => (
+                  <span key={edge.id} className="constructor-3d__facet-pair">
+                    <button
+                      type="button"
+                      className={`constructor-3d__tool-btn constructor-3d__tool-btn--facet${edge.sideAActive !== false ? ' constructor-3d__tool-btn--active' : ''}`}
+                      onClick={() => onEdgeSideChange?.(edge.id, 'a', edge.sideAActive === false)}
+                      title={`Показать/скрыть сторону А ребра ${idx + 1}`}
+                    >
+                      Р{idx + 1}А
+                    </button>
+                    <button
+                      type="button"
+                      className={`constructor-3d__tool-btn constructor-3d__tool-btn--facet${edge.sideBActive !== false ? ' constructor-3d__tool-btn--active' : ''}`}
+                      onClick={() => onEdgeSideChange?.(edge.id, 'b', edge.sideBActive === false)}
+                      title={`Показать/скрыть сторону Б ребра ${idx + 1}`}
+                    >
+                      Р{idx + 1}Б
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
         <button
           type="button"

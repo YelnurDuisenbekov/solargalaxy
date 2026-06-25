@@ -14,7 +14,14 @@ import {
 } from '../../components/constructor/useConstructor';
 import { INVERTERS, MODULES } from '../../utils/constructor/equipment';
 import { findModule } from '../../utils/constructor/equipment.js';
-import { extendEdgeToPerimeter, snapPointToPerimeter } from '../../utils/constructor/roofFacets.js';
+import { latLngToLocalMeters } from '../../utils/constructor/calc.js';
+import {
+  azimuthDegFromArrow,
+  createPerpendicularEdgeAtPoint,
+  extendEdgeToPerimeter,
+  isPointNearPerimeter,
+  snapPointToPerimeter,
+} from '../../utils/constructor/roofFacets.js';
 import {
   applyObstacleMetricsPatch,
   defaultObstacle,
@@ -90,12 +97,33 @@ export default function ConstructorPage() {
 
       if (s.drawMode === 'edge') {
         const hasContour = s.roofPolygon.length >= 3;
-        const snapped = hasContour ? snapPointToPerimeter(point, s.roofPolygon) : point;
+        if (!hasContour) return s;
+
+        const edgeMode = s.edgeDrawMode || 'perpendicular';
+
+        if (edgeMode === 'perpendicular') {
+          if (!isPointNearPerimeter(point, s.roofPolygon)) return s;
+          const edgeLine = createPerpendicularEdgeAtPoint(point, s.roofPolygon);
+          if (!edgeLine) return s;
+          const newEdge = {
+            id: `edge-${Date.now()}`,
+            from: edgeLine.from,
+            to: edgeLine.to,
+            sideAActive: true,
+            sideBActive: true,
+          };
+          return {
+            ...s,
+            roofEdges: [...(s.roofEdges || []), newEdge],
+            edgeDraft: [],
+            panels: [],
+          };
+        }
+
+        const snapped = snapPointToPerimeter(point, s.roofPolygon);
         const draft = [...(s.edgeDraft || []), snapped];
         if (draft.length >= 2) {
-          const { from, to } = hasContour
-            ? extendEdgeToPerimeter(draft[0], draft[1], s.roofPolygon)
-            : { from: draft[0], to: draft[1] };
+          const { from, to } = extendEdgeToPerimeter(draft[0], draft[1], s.roofPolygon);
           const newEdge = {
             id: `edge-${Date.now()}`,
             from,
@@ -111,6 +139,77 @@ export default function ConstructorPage() {
           };
         }
         return { ...s, edgeDraft: draft };
+      }
+
+      if (s.drawMode === 'azimuth') {
+        const hasContour = s.roofPolygon.length >= 3;
+        if (!hasContour) return s;
+
+        const click = point;
+        const refLat = s.roofPolygon.reduce((sum, p) => sum + p.lat, 0) / s.roofPolygon.length;
+        const refLng = s.roofPolygon.reduce((sum, p) => sum + p.lng, 0) / s.roofPolygon.length;
+        const distM = (a, b) => {
+          const la = latLngToLocalMeters(a.lat, a.lng, refLat, refLng);
+          const lb = latLngToLocalMeters(b.lat, b.lng, refLat, refLng);
+          return Math.hypot(lb.x - la.x, lb.y - la.y);
+        };
+
+        const draft = Array.isArray(s.azimuthDraft) ? s.azimuthDraft : [];
+        const arrow = s.azimuthArrow;
+
+        // если второй клик — завершаем стрелку
+        if (draft.length === 1) {
+          const from = draft[0];
+          const to = click;
+          const az = azimuthDegFromArrow(from, to, s.roofPolygon);
+          if (az == null) return { ...s, azimuthDraft: [] };
+
+          const nextOverrides = { ...(s.facetAzimuthOverrides || {}) };
+          if (s.roofEdges?.length && s.selectedFacetId) {
+            nextOverrides[s.selectedFacetId] = az;
+          } else {
+            nextOverrides.whole = az;
+          }
+
+          return {
+            ...s,
+            azimuthDeg: az,
+            azimuthArrow: { from, to },
+            azimuthDraft: [],
+            facetAzimuthOverrides: nextOverrides,
+            panels: [],
+          };
+        }
+
+        // если стрелка уже есть — кликом правим направление (по наконечнику)
+        if (arrow?.from && arrow?.to) {
+          const nearTip = distM(click, arrow.to) < 2.5;
+          const nearTail = distM(click, arrow.from) < 2.5;
+          if (nearTip) {
+            const from = arrow.from;
+            const to = click;
+            const az = azimuthDegFromArrow(from, to, s.roofPolygon);
+            if (az == null) return s;
+
+            const nextOverrides = { ...(s.facetAzimuthOverrides || {}) };
+            if (s.roofEdges?.length && s.selectedFacetId) nextOverrides[s.selectedFacetId] = az;
+            else nextOverrides.whole = az;
+
+            return {
+              ...s,
+              azimuthDeg: az,
+              azimuthArrow: { from, to },
+              facetAzimuthOverrides: nextOverrides,
+              panels: [],
+            };
+          }
+          if (nearTail) {
+            return { ...s, azimuthDraft: [click] };
+          }
+        }
+
+        // первый клик — старт новой стрелки
+        return { ...s, azimuthDraft: [click] };
       }
 
       return s;
@@ -384,7 +483,8 @@ export default function ConstructorPage() {
                 {[
                   ['roof', '① Углы крыши'],
                   ['edge', '② Рёбра крыши'],
-                  ['obstacle', '③ Препятствие'],
+                  ['azimuth', '③ Азимут'],
+                  ['obstacle', '④ Препятствие'],
                   ['view', 'Просмотр'],
                 ].map(([mode, label]) => (
                   <button
@@ -395,7 +495,7 @@ export default function ConstructorPage() {
                       if (mode === 'obstacle') {
                         selectObstacleShape(state.obstacleShape || 'tree');
                       } else {
-                        patch({ drawMode: mode, edgeDraft: [], roofRectDraft: [] });
+                        patch({ drawMode: mode, edgeDraft: [], azimuthDraft: [], roofRectDraft: [] });
                       }
                     }}
                   >
@@ -403,6 +503,14 @@ export default function ConstructorPage() {
                   </button>
                 ))}
               </div>
+              {state.drawMode === 'azimuth' && (
+                <p className="constructor-active-hint">
+                  <strong>Азимут ската:</strong> 1-й клик — хвост стрелки, 2-й — направление.
+                  Потом клик по наконечнику (второй точке) — поправить.
+                  {' '}
+                  Сейчас: <strong>{state.azimuthDeg}°</strong> (0°=север, 180°=юг)
+                </p>
+              )}
               {state.drawMode === 'roof' && (
                 <div className="constructor-draw-modes" style={{ marginTop: 8 }}>
                   {[
@@ -549,12 +657,31 @@ export default function ConstructorPage() {
                 </>
               )}
               {state.drawMode === 'edge' && (
-                <p className="constructor-active-hint">
-                  <strong>Рёбра крыши:</strong> два клика задают направление — линия автоматически продлевается до периметра контура.
-                  Клики рядом с краем крыши привязываются к границе.
-                  {state.edgeDraft?.length === 1 && ' · Ждём 2-й клик…'}
-                  {(state.roofEdges?.length || 0) > 0 && ` · Рёбер: ${state.roofEdges.length}`}
-                </p>
+                <>
+                  <div className="constructor-draw-modes" style={{ marginTop: 8 }}>
+                    {[
+                      ['perpendicular', '⊥ Перпендикулярный'],
+                      ['free', '↗ Свободный'],
+                    ].map(([mode, label]) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        className={`btn btn--sm${(state.edgeDrawMode || 'perpendicular') === mode ? ' btn--primary' : ' btn--outline-dark'}`}
+                        onClick={() => patch({ edgeDrawMode: mode, edgeDraft: [] })}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="constructor-active-hint">
+                    <strong>Рёбра крыши:</strong>
+                    {(state.edgeDrawMode || 'perpendicular') === 'perpendicular'
+                      ? ' клик по стороне контура — ребро перпендикулярно стене, через всю крышу.'
+                      : ' два клика задают направление — линия продлевается до периметра.'}
+                    {(state.edgeDrawMode || 'perpendicular') === 'free' && state.edgeDraft?.length === 1 && ' · Ждём 2-й клик…'}
+                    {(state.roofEdges?.length || 0) > 0 && ` · Рёбер: ${state.roofEdges.length}`}
+                  </p>
+                </>
               )}
               {(state.roofEdges?.length || 0) > 0 && (
                 <ul className="constructor-edge-list">
@@ -610,6 +737,8 @@ export default function ConstructorPage() {
               roofRectDraft={state.roofRectDraft}
               roofEdges={state.roofEdges}
               edgeDraft={state.edgeDraft}
+              azimuthArrow={state.azimuthArrow}
+              azimuthDraft={state.azimuthDraft}
               obstacles={state.obstacles}
               selectedObstacleId={state.selectedObstacleId}
               drawMode={state.drawMode}
@@ -692,21 +821,90 @@ export default function ConstructorPage() {
                       }}
                     />
                   </label>
+                  <label>
+                    Отступ от края крыши, м
+                    <input
+                      className="input input--plain-num"
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step={0.01}
+                      title="Минимальное расстояние от края контура крыши до панели"
+                      value={state.panelEdgeMarginM ?? 1}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw === '') return;
+                        const v = Number(raw.replace(',', '.'));
+                        if (!Number.isNaN(v)) patch({ panelEdgeMarginM: v });
+                      }}
+                      onBlur={(e) => {
+                        const v = Number(String(e.target.value).replace(',', '.'));
+                        if (Number.isNaN(v)) patch({ panelEdgeMarginM: 1 });
+                        else patch({ panelEdgeMarginM: Math.round(Math.min(10, Math.max(0, v)) * 100) / 100 });
+                      }}
+                    />
+                  </label>
+                  <label>
+                    Зазор между панелями, м
+                    <input
+                      className="input input--plain-num"
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step={0.01}
+                      title="Расстояние между панелями по рядам и столбцам"
+                      value={state.panelSpacingM ?? 0.02}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw === '') return;
+                        const v = Number(raw.replace(',', '.'));
+                        if (!Number.isNaN(v)) patch({ panelSpacingM: v });
+                      }}
+                      onBlur={(e) => {
+                        const v = Number(String(e.target.value).replace(',', '.'));
+                        if (Number.isNaN(v)) patch({ panelSpacingM: 0.02 });
+                        else patch({ panelSpacingM: Math.round(Math.min(10, Math.max(0, v)) * 100) / 100 });
+                      }}
+                    />
+                  </label>
                 </div>
                 <p className="constructor-params__note">
                   Высота от земли — до карниза. Конёк выше на величину, зависящую от уклона и размера крыши.
+                  Отступ от края — до ближайшей границы контура; зазор — между соседними панелями.
                   {(state.roofEdges?.length || 0) === 0 && ' 180° = юг (азимут без рёбер).'}
                 </p>
                 {facets.length > 0 && (
-                  <ul className="constructor-facet-list">
-                    {facets.map((f) => (
-                      <li key={f.id}>
-                        <strong>{f.label}</strong>
-                        {' · '}
-                        ~{f.areaM2} м² · азимут {f.azimuthDeg}°
-                      </li>
-                    ))}
-                  </ul>
+                  <>
+                    <p className="constructor-params__note">
+                      Выберите скат для расстановки панелей. Неактивные скаты остаются без панелей.
+                      {state.selectedFacetId
+                        ? ` Выбран: ${facets.find((f) => f.id === state.selectedFacetId)?.label || '—'}`
+                        : ' Сейчас: все активные скаты'}
+                    </p>
+                    <ul className="constructor-facet-list">
+                      {facets.map((f) => (
+                        <li key={f.id}>
+                          <button
+                            type="button"
+                            className={[
+                              'constructor-facet-pick',
+                              f.active === false ? 'constructor-facet-pick--off' : '',
+                              state.selectedFacetId === f.id ? 'constructor-facet-pick--selected' : '',
+                            ].filter(Boolean).join(' ')}
+                            disabled={f.active === false}
+                            onClick={() => patch({
+                              selectedFacetId: state.selectedFacetId === f.id ? null : f.id,
+                            })}
+                          >
+                            <strong>{f.label}</strong>
+                            {f.active === false && ' (выкл.)'}
+                            {' · '}
+                            ~{f.areaM2} м² · азимут {f.azimuthDeg}°
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
                 )}
                 <dl className="app-dl constructor-roof-stats">
                   <dt>Площадь контура</dt>
@@ -731,6 +929,7 @@ export default function ConstructorPage() {
                   roofEdges={state.roofEdges}
                   pitchDeg={state.pitchDeg}
                   azimuthDeg={state.azimuthDeg}
+                  facetAzimuthOverrides={state.facetAzimuthOverrides || {}}
                   roofBaseHeightM={state.roofBaseHeightM ?? 0}
                   obstacles={state.obstacles}
                   hasRoof={state.roofPolygon.length >= 3}
@@ -741,11 +940,21 @@ export default function ConstructorPage() {
                   panelMountTiltDeg={state.panelMountTiltDeg}
                   panelLayout={state.panelLayout}
                   moduleSku={state.moduleSku}
-                  onAddPanels={() => patch({ panels: [], panelsVisible3d: true })}
+                  facets={facets}
+                  selectedFacetId={state.selectedFacetId}
+                  onFacetSelect={(facetId) => patch({ selectedFacetId: facetId })}
+                  onAddPanels={() => patch({ panelsVisible3d: true })}
                   onMountModeChange={(mode) => patch({ panelMountMode: mode })}
                   onMountTiltChange={(panelMountTiltDeg) => patch({ panelMountTiltDeg })}
-                  onLayoutChange={(panelLayout) => patch({ panelLayout })}
+                  onLayoutChange={(panelLayout) => patch({ panelLayout, panels: [] })}
                   onModuleChange={(moduleSku) => patch({ moduleSku, panels: [] })}
+                  onEdgeSideChange={(edgeId, side, active) => patch({
+                    roofEdges: state.roofEdges.map((ed) => (
+                      ed.id === edgeId
+                        ? { ...ed, [side === 'a' ? 'sideAActive' : 'sideBActive']: active }
+                        : ed
+                    )),
+                  })}
                 />
               </div>
             </div>

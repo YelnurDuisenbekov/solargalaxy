@@ -180,7 +180,35 @@ function getRidgeBasis(el, side) {
   return { alongX, alongY, downX, downY, len };
 }
 
-/** Скат как наклонная плоскость: ребро — верх, карниз — низ */
+function buildFacetHeightMesh(facet, roofEdges, pitchDeg, baseHeightM = 0) {
+  const poly = facet.polygon;
+  if (!poly || poly.length < 3) return { positions: [], normals: [], maxY: 0 };
+
+  const positions = [];
+  const normals = [];
+
+  const to3 = (p) => ({
+    x: p.x,
+    y: facetHeightAt(p, facet, roofEdges, pitchDeg) + baseHeightM,
+    z: p.y,
+  });
+
+  const pushTri = (p1, p2, p3) => {
+    const a = to3(p1);
+    const b = to3(p2);
+    const c = to3(p3);
+    pushTri3(positions, normals, a, b, c);
+  };
+
+  for (let i = 1; i < poly.length - 1; i += 1) {
+    pushTri(poly[0], poly[i], poly[i + 1]);
+  }
+
+  const maxY = Math.max(...poly.map((p) => facetHeightAt(p, facet, roofEdges, pitchDeg))) + baseHeightM;
+  return { positions, normals, maxY };
+}
+
+/** @deprecated — используйте buildFacetHeightMesh */
 function buildFacetSlopedMesh(facet, roofEdges, pitchDeg, baseHeightM = 0) {
   const { refLat, refLng, polygon, sides } = facet;
   const edgeId = Object.keys(sides)[0];
@@ -299,12 +327,12 @@ function buildSingleSlopeMesh(facet, pitchDeg, baseHeightM = 0) {
   return { positions, normals, maxY };
 }
 
-export function buildRoofSurfaceData(roofPolygon, roofEdges, pitchDeg, azimuthDeg, roofBaseHeightM = 0) {
+export function buildRoofSurfaceData(roofPolygon, roofEdges, pitchDeg, azimuthDeg, roofBaseHeightM = 0, azimuthOverrides = {}) {
   if (!roofPolygon || roofPolygon.length < 3) return null;
 
   const pitch = Number(pitchDeg) || 0;
   const baseH = Number(roofBaseHeightM) || 0;
-  const facets = computeFacets(roofPolygon, roofEdges, pitch, azimuthDeg);
+  const facets = computeFacets(roofPolygon, roofEdges, pitch, azimuthDeg, azimuthOverrides);
   if (!facets.length) return null;
 
   const { refLat, refLng } = getPolygonRef(roofPolygon);
@@ -318,22 +346,23 @@ export function buildRoofSurfaceData(roofPolygon, roofEdges, pitchDeg, azimuthDe
   let globalMaxY = 0;
 
   facets.forEach((facet, idx) => {
-    const hasEdges = roofEdges?.length > 0 && facet.sides && Object.keys(facet.sides).length > 0;
-    const mesh = hasEdges
-      ? buildFacetSlopedMesh(facet, roofEdges, pitch, baseH)
-      : buildSingleSlopeMesh(facet, pitch, baseH);
+    const mesh = buildFacetHeightMesh(facet, roofEdges, pitch, baseH);
 
     globalMaxY = Math.max(globalMaxY, mesh.maxY);
     if (mesh.positions.length < 9) return;
 
     appendFacetUnderside(solidVertices, solidNormals, facet, roofEdges, pitch, baseH, polyLocal);
 
+    const isActive = facet.active !== false;
     facetGroups.push({
       id: facet.id,
       label: facet.label,
+      active: isActive,
       startIndex: vertices.length / 3,
       count: mesh.positions.length / 3,
-      color: idx % 2 === 0 ? 0x64748b : 0x556275,
+      color: isActive
+        ? (idx % 2 === 0 ? 0x64748b : 0x556275)
+        : 0x94a3b8,
     });
     vertices.push(...mesh.positions);
     normals.push(...mesh.normals);

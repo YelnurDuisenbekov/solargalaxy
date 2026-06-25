@@ -3,15 +3,14 @@
 import { avgTariffGrowthRate, calcPaybackWithTariffGrowth } from '../solarEstimate.js';
 import { findInverter, findModule } from './equipment.js';
 import {
-  facetIdForPoint,
   getPolygonRef,
-  isPointInActiveRegion,
 } from './roofFacets.js';
 import { obstacleShadowRadius } from './obstacles.js';
 
 const PEAK_SUN_HOURS = 4.8;
 const PERFORMANCE_RATIO = 0.78;
-const PANEL_GAP_M = 0.02;
+const DEFAULT_PANEL_SPACING_M = 0.02;
+const DEFAULT_PANEL_EDGE_MARGIN_M = 1;
 const MOUNT_COST_PER_PANEL = 12000;
 const COMMISSIONING_BASE = 150000;
 
@@ -46,6 +45,28 @@ export function polygonAreaM2(points) {
   return Math.abs(sum) / 2;
 }
 
+function pointToSegmentDistance(px, py, ax, ay, bx, by) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq < 1e-12) return Math.hypot(px - ax, py - ay);
+  let t = ((px - ax) * dx + (py - ay) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  const qx = ax + t * dx;
+  const qy = ay + t * dy;
+  return Math.hypot(px - qx, py - qy);
+}
+
+function distanceToPolygonBoundary(x, y, polygon) {
+  let minD = Infinity;
+  for (let i = 0; i < polygon.length; i += 1) {
+    const a = polygon[i];
+    const b = polygon[(i + 1) % polygon.length];
+    minD = Math.min(minD, pointToSegmentDistance(x, y, a.x, a.y, b.x, b.y));
+  }
+  return minD;
+}
+
 function pointInPolygon(x, y, polygon) {
   let inside = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
@@ -59,49 +80,106 @@ function pointInPolygon(x, y, polygon) {
   return inside;
 }
 
-/** Авто-генерация сетки панелей внутри полигона крыши и активных скатов */
-export function generatePanelGrid({ roofPolygon, roofEdges, pitchDeg, module, panelLayout, existingPanels }) {
-  if (!roofPolygon || roofPolygon.length < 3) return [];
+function azimuthToVectors(azimuthDeg) {
+  const rad = (azimuthDeg * Math.PI) / 180;
+  const downX = Math.sin(rad);
+  const downY = Math.cos(rad);
+  const acrossX = Math.cos(rad);
+  const acrossY = -Math.sin(rad);
+  return { downX, downY, acrossX, acrossY };
+}
 
-  const { refLat, refLng } = getPolygonRef(roofPolygon);
-  const polyLocal = roofPolygon.map((p) => latLngToLocalMeters(p.lat, p.lng, refLat, refLng));
+function localToFacetUV(x, y, azimuthDeg) {
+  const { downX, downY, acrossX, acrossY } = azimuthToVectors(azimuthDeg);
+  return { u: x * acrossX + y * acrossY, v: x * downX + y * downY };
+}
 
-  const xs = polyLocal.map((p) => p.x);
-  const ys = polyLocal.map((p) => p.y);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
+function facetUVToLocal(u, v, azimuthDeg) {
+  const { downX, downY, acrossX, acrossY } = azimuthToVectors(azimuthDeg);
+  return { x: u * acrossX + v * downX, y: u * acrossY + v * downY };
+}
 
-  const pitchFactor = Math.cos((pitchDeg * Math.PI) / 180);
+function panelFitsOnFacet(u, v, facetPoly, roofPoly, margin, halfAcross, halfAlongPlan, azimuthDeg) {
+  const corners = [
+    { u: u - halfAcross, v: v - halfAlongPlan },
+    { u: u + halfAcross, v: v - halfAlongPlan },
+    { u: u + halfAcross, v: v + halfAlongPlan },
+    { u: u - halfAcross, v: v + halfAlongPlan },
+  ];
+  return corners.every((c) => {
+    const xy = facetUVToLocal(c.u, c.v, azimuthDeg);
+    if (!pointInPolygon(xy.x, xy.y, facetPoly)) return false;
+    if (distanceToPolygonBoundary(xy.x, xy.y, roofPoly) < margin - 1e-6) return false;
+    return true;
+  });
+}
+
+function generatePanelsOnFacet({
+  facet,
+  roofPolyLocal,
+  module,
+  panelLayout,
+  pitchDeg,
+  panelSpacingM,
+  panelEdgeMarginM,
+  existingPanels,
+  idStart,
+}) {
+  const poly = facet.polygon;
+  if (!poly || poly.length < 3) return [];
+
+  const pitchRad = (pitchDeg * Math.PI) / 180;
+  const pitchFactor = Math.cos(pitchRad) || 1;
   const isVertical = panelLayout === 'vertical' || panelLayout === 'along';
-  // По оси Y (вдоль ската) сторона укорачивается из-за проекции на план
-  const acrossM = isVertical ? module.heightM : module.widthM; // вдоль карниза (X)
-  const alongM = isVertical ? module.widthM : module.heightM; // вдоль ската (Y)
-  const effW = acrossM + PANEL_GAP_M;
-  const effH = (alongM + PANEL_GAP_M) / (pitchFactor || 1);
+  const acrossM = isVertical ? module.heightM : module.widthM;
+  const alongM = isVertical ? module.widthM : module.heightM;
+  const gap = panelSpacingM != null && !Number.isNaN(Number(panelSpacingM))
+    ? Math.max(0, Number(panelSpacingM))
+    : DEFAULT_PANEL_SPACING_M;
+  const margin = panelEdgeMarginM != null && !Number.isNaN(Number(panelEdgeMarginM))
+    ? Math.max(0, Number(panelEdgeMarginM))
+    : DEFAULT_PANEL_EDGE_MARGIN_M;
 
-  const cols = Math.floor((maxX - minX) / effW);
-  const rows = Math.floor((maxY - minY) / effH);
+  const halfAcross = acrossM / 2;
+  const halfAlongPlan = (alongM * pitchFactor) / 2;
+  const effAcross = acrossM + gap;
+  const effAlongPlan = (alongM + gap) * pitchFactor;
+
+  const azimuthDeg = facet.azimuthDeg ?? 180;
+  const uvPoly = poly.map((p) => localToFacetUV(p.x, p.y, azimuthDeg));
+  const us = uvPoly.map((p) => p.u);
+  const vs = uvPoly.map((p) => p.v);
+  const minU = Math.min(...us);
+  const maxU = Math.max(...us);
+  const minV = Math.min(...vs);
+  const maxV = Math.max(...vs);
+
+  const uStart = minU + margin + halfAcross;
+  const uEnd = maxU - margin - halfAcross;
+  const vStart = minV + margin + halfAlongPlan;
+  const vEnd = maxV - margin - halfAlongPlan;
+  if (uStart > uEnd || vStart > vEnd) return [];
+
   const panels = [];
-  let idCounter = 1;
+  let nextId = idStart;
+  let row = 0;
 
-  for (let row = 0; row < rows; row += 1) {
-    for (let col = 0; col < cols; col += 1) {
-      const cx = minX + col * effW + effW / 2;
-      const cy = minY + row * effH + effH / 2;
-      const center = { x: cx, y: cy };
-      if (!pointInPolygon(cx, cy, polyLocal)) continue;
-      if (!isPointInActiveRegion(center, roofEdges, refLat, refLng)) continue;
+  for (let v = vStart; v <= vEnd + 1e-9; v += effAlongPlan, row += 1) {
+    let col = 0;
+    for (let u = uStart; u <= uEnd + 1e-9; u += effAcross, col += 1) {
+      if (!panelFitsOnFacet(u, v, poly, roofPolyLocal, margin, halfAcross, halfAlongPlan, azimuthDeg)) continue;
 
-      const existing = existingPanels?.find((p) => p.row === row && p.col === col);
+      const xy = facetUVToLocal(u, v, azimuthDeg);
+      const existing = existingPanels?.find(
+        (p) => p.facetId === facet.id && p.row === row && p.col === col,
+      );
       panels.push({
-        id: existing?.id || `p-${idCounter++}`,
+        id: existing?.id || `p-${nextId++}`,
         row,
         col,
-        localX: cx,
-        localY: cy,
-        facetId: facetIdForPoint(center, roofEdges, refLat, refLng) || 'whole',
+        localX: xy.x,
+        localY: xy.y,
+        facetId: facet.id,
         active: existing?.active ?? true,
         moduleSku: existing?.moduleSku || module.sku,
         stringId: existing?.stringId ?? null,
@@ -112,6 +190,88 @@ export function generatePanelGrid({ roofPolygon, roofEdges, pitchDeg, module, pa
   }
 
   return panels;
+}
+
+/** Авто-генерация сетки панелей внутри полигона крыши и активных скатов */
+export function generatePanelGrid({
+  roofPolygon,
+  roofEdges,
+  facets,
+  pitchDeg,
+  module,
+  panelLayout,
+  panelSpacingM,
+  panelEdgeMarginM,
+  selectedFacetId,
+  azimuthDeg,
+  existingPanels,
+}) {
+  if (!roofPolygon || roofPolygon.length < 3) return [];
+
+  const { refLat, refLng } = getPolygonRef(roofPolygon);
+  const roofPolyLocal = roofPolygon.map((p) => latLngToLocalMeters(p.lat, p.lng, refLat, refLng));
+
+  const allFacets = facets?.length
+    ? facets
+    : [{
+      id: 'whole',
+      polygon: roofPolyLocal,
+      azimuthDeg: azimuthDeg ?? 180,
+      active: true,
+    }];
+
+  const targetFacets = allFacets.filter((f) => {
+    if (f.active === false) return false;
+    if (selectedFacetId && selectedFacetId !== f.id) return false;
+    return true;
+  });
+
+  let preserved = [];
+  if (selectedFacetId) {
+    preserved = (existingPanels || []).filter((p) => {
+      if (p.facetId === selectedFacetId) return false;
+      const f = allFacets.find((x) => x.id === p.facetId);
+      return !f || f.active !== false;
+    });
+  }
+
+  const facetExisting = selectedFacetId
+    ? (existingPanels || []).filter((p) => p.facetId === selectedFacetId)
+    : (existingPanels || []);
+
+  let nextId = 1;
+  (existingPanels || []).forEach((p) => {
+    const m = String(p.id).match(/^p-(\d+)$/);
+    if (m) nextId = Math.max(nextId, Number(m[1]) + 1);
+  });
+
+  const newPanels = [];
+  targetFacets.forEach((facet) => {
+    const batch = generatePanelsOnFacet({
+      facet,
+      roofPolyLocal,
+      module,
+      panelLayout,
+      pitchDeg,
+      panelSpacingM,
+      panelEdgeMarginM,
+      existingPanels: facetExisting,
+      idStart: nextId,
+    });
+    batch.forEach((p) => {
+      const m = String(p.id).match(/^p-(\d+)$/);
+      if (m) nextId = Math.max(nextId, Number(m[1]) + 1);
+    });
+    newPanels.push(...batch);
+  });
+
+  if (selectedFacetId) {
+    return [...preserved, ...newPanels].filter((p) => {
+      const f = allFacets.find((x) => x.id === p.facetId);
+      return !f || f.active !== false;
+    });
+  }
+  return newPanels;
 }
 
 /** Упрощённая оценка затенения от препятствий */

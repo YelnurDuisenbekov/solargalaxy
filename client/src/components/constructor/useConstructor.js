@@ -70,11 +70,19 @@ export const INITIAL_CONSTRUCTOR_STATE = {
 
   edgeDraft: [],
 
+  /** Режим рисования ребра: perpendicular | free */
+  edgeDrawMode: 'perpendicular',
+
   pitchDeg: 25,
 
   roofBaseHeightM: 3,
 
   azimuthDeg: 180,
+  /** Стрелка азимута (на карте) */
+  azimuthArrow: null,
+  azimuthDraft: [],
+  /** Переопределение азимута для скатов (facetId → azimuthDeg) */
+  facetAzimuthOverrides: {},
 
   obstacles: [],
 
@@ -117,6 +125,12 @@ export const INITIAL_CONSTRUCTOR_STATE = {
   panelMountMode: 'racked',
   panelMountTiltDeg: 30,
   panelLayout: 'horizontal',
+  /** Зазор между панелями (ряды и столбцы), м */
+  panelSpacingM: 0.02,
+  /** Отступ от края контура крыши, м */
+  panelEdgeMarginM: 1,
+  /** Скат для расстановки панелей (null = все активные) */
+  selectedFacetId: null,
 
 };
 
@@ -161,33 +175,25 @@ export function useConstructorDerived(state) {
 
     let panels = state.panels;
 
-    if (state.roofPolygon.length >= 3) {
-
-      panels = generatePanelGrid({
-
-        roofPolygon: state.roofPolygon,
-
-        roofEdges: state.roofEdges,
-
-        pitchDeg: state.pitchDeg,
-
-        module,
-
-        panelLayout: state.panelLayout,
-
-        existingPanels: state.panels,
-
-      });
-
-    }
-
-
-
     const facets = state.roofPolygon.length >= 3
-
-      ? computeFacets(state.roofPolygon, state.roofEdges, state.pitchDeg, state.azimuthDeg)
-
+      ? computeFacets(state.roofPolygon, state.roofEdges, state.pitchDeg, state.azimuthDeg, state.facetAzimuthOverrides || {})
       : [];
+
+    if (state.roofPolygon.length >= 3) {
+      panels = generatePanelGrid({
+        roofPolygon: state.roofPolygon,
+        roofEdges: state.roofEdges,
+        facets,
+        pitchDeg: state.pitchDeg,
+        module,
+        panelLayout: state.panelLayout,
+        panelSpacingM: state.panelSpacingM,
+        panelEdgeMarginM: state.panelEdgeMarginM,
+        selectedFacetId: state.selectedFacetId,
+        azimuthDeg: state.azimuthDeg,
+        existingPanels: state.panels,
+      });
+    }
 
 
 

@@ -14,6 +14,7 @@ import {
   resizeObstacleCorner,
   resizeObstacleEdge,
 } from '../../utils/constructor/obstacles.js';
+import { edgeLinePathLatLng } from '../../utils/constructor/roofFacets.js';
 
 
 
@@ -95,6 +96,9 @@ export default function ConstructorMap({
 
   edgeDraft,
 
+  azimuthArrow,
+  azimuthDraft,
+
   obstacles,
 
   selectedObstacleId,
@@ -121,7 +125,7 @@ export default function ConstructorMap({
 
   const baseLayerRef = useRef(null);
 
-  const layersRef = useRef({ polygon: null, edges: [], draft: null, markers: [], obstacles: [], obstacleHandles: [], pin: null });
+  const layersRef = useRef({ polygon: null, edges: [], draft: null, azimuth: null, markers: [], obstacles: [], obstacleHandles: [], pin: null });
 
   const drawModeRef = useRef(drawMode);
 
@@ -165,7 +169,7 @@ export default function ConstructorMap({
 
       const cb = callbacksRef.current;
 
-      if (mode === 'roof' || mode === 'edge') {
+      if (mode === 'roof' || mode === 'edge' || mode === 'azimuth') {
         cb.onMapClick?.(pos);
         return;
       }
@@ -248,6 +252,7 @@ export default function ConstructorMap({
     layersRef.current.edges = [];
 
     layersRef.current.draft?.remove();
+    layersRef.current.azimuth?.remove();
 
     layersRef.current.obstacles.forEach((o) => o.remove());
 
@@ -260,6 +265,7 @@ export default function ConstructorMap({
     layersRef.current.polygon = null;
 
     layersRef.current.draft = null;
+    layersRef.current.azimuth = null;
 
 
 
@@ -359,7 +365,7 @@ export default function ConstructorMap({
 
       const line = L.polyline(
 
-        [[edge.from.lat, edge.from.lng], [edge.to.lat, edge.to.lng]],
+        edgeLinePathLatLng(edge.from, edge.to, roofPolygon).map((p) => [p.lat, p.lng]),
 
         { color: '#103B5E', weight: 4, interactive: false },
 
@@ -375,12 +381,26 @@ export default function ConstructorMap({
 
       layersRef.current.draft = L.polyline(
 
-        edgeDraft.map((p) => [p.lat, p.lng]),
+        edgeDraft.length >= 2
+          ? edgeLinePathLatLng(edgeDraft[0], edgeDraft[1], roofPolygon).map((p) => [p.lat, p.lng])
+          : edgeDraft.map((p) => [p.lat, p.lng]),
 
         { color: '#103B5E', weight: 3, dashArray: '4 4', interactive: false },
 
       ).addTo(map);
 
+    }
+
+    if (azimuthArrow?.from && azimuthArrow?.to) {
+      layersRef.current.azimuth = L.polyline(
+        edgeLinePathLatLng(azimuthArrow.from, azimuthArrow.to, roofPolygon, 32).map((p) => [p.lat, p.lng]),
+        { color: '#E3A50B', weight: 4, interactive: false },
+      ).addTo(map);
+    } else if (azimuthDraft?.length === 1) {
+      layersRef.current.azimuth = L.polyline(
+        edgeLinePathLatLng(azimuthDraft[0], { lat, lng }, roofPolygon, 16).map((p) => [p.lat, p.lng]),
+        { color: '#E3A50B', weight: 3, dashArray: '6 4', interactive: false },
+      ).addTo(map);
     }
 
 
@@ -464,7 +484,7 @@ export default function ConstructorMap({
 
     });
 
-  }, [roofPolygon, roofRectDraft, roofEdges, edgeDraft, obstacles, selectedObstacleId, lat, lng]);
+  }, [roofPolygon, roofRectDraft, roofEdges, edgeDraft, azimuthArrow, azimuthDraft, obstacles, selectedObstacleId, lat, lng]);
 
 
 
@@ -472,7 +492,7 @@ export default function ConstructorMap({
 
     roof: 'Кликайте по углам крыши на спутнике (минимум 3 точки)',
 
-    edge: edgeDraft?.length ? 'Рёбра: 2-й клик — направление, линия до периметра' : 'Рёбра: 1-й клик на крыше или у края',
+    edge: 'Рёбра: перпендикулярный — клик по краю; свободный — 2 точки',
 
     obstacle: 'Клик — новое препятствие · клик по фигуре — выбор · тяните маркеры',
 

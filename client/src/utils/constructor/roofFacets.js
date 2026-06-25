@@ -72,6 +72,28 @@ export function snapPointToPerimeter(point, roofPolygon, maxDistM = EDGE_PERIMET
  * Продлевает линию между двумя кликами до пересечения с периметром контура.
  * Концы ребра ложатся ровно на границу крыши.
  */
+/** Прямая линия ребра в локальных метрах → путь lat/lng для карты (без геодезической дуги) */
+export function edgeLinePathLatLng(fromLatLng, toLatLng, roofPolygon, segments = 24) {
+  if (!fromLatLng || !toLatLng) return [];
+  const { refLat, refLng } = roofPolygon?.length >= 3
+    ? getPolygonRef(roofPolygon)
+    : {
+      refLat: (fromLatLng.lat + toLatLng.lat) / 2,
+      refLng: (fromLatLng.lng + toLatLng.lng) / 2,
+    };
+  const p1 = latLngToLocalMeters(fromLatLng.lat, fromLatLng.lng, refLat, refLng);
+  const p2 = latLngToLocalMeters(toLatLng.lat, toLatLng.lng, refLat, refLng);
+  const path = [];
+  for (let i = 0; i <= segments; i += 1) {
+    const t = i / segments;
+    const x = p1.x + t * (p2.x - p1.x);
+    const y = p1.y + t * (p2.y - p1.y);
+    const ll = localMetersToLatLng(x, y, refLat, refLng);
+    path.push({ lat: ll.lat, lng: ll.lng });
+  }
+  return path;
+}
+
 export function extendEdgeToPerimeter(fromLatLng, toLatLng, roofPolygon) {
   if (!roofPolygon || roofPolygon.length < 3) {
     return { from: fromLatLng, to: toLatLng };
@@ -117,10 +139,107 @@ export function extendEdgeToPerimeter(fromLatLng, toLatLng, roofPolygon) {
   };
 }
 
+/** Клик достаточно близко к периметру контура */
+export function isPointNearPerimeter(point, roofPolygon, maxDistM = EDGE_PERIMETER_SNAP_M) {
+  if (!roofPolygon || roofPolygon.length < 3) return false;
+  const { refLat, refLng } = getPolygonRef(roofPolygon);
+  const p = latLngToLocalMeters(point.lat, point.lng, refLat, refLng);
+  const snapped = snapPointToPerimeter(point, roofPolygon, maxDistM);
+  const s = latLngToLocalMeters(snapped.lat, snapped.lng, refLat, refLng);
+  return dist2d(p, s) <= maxDistM + 0.15;
+}
+
+/**
+ * Ребро перпендикулярно стороне периметра в точке клика.
+ * Один клик у края крыши — линия через весь контур до противоположных границ.
+ */
+export function createPerpendicularEdgeAtPoint(point, roofPolygon) {
+  if (!roofPolygon || roofPolygon.length < 3) return null;
+
+  const { refLat, refLng } = getPolygonRef(roofPolygon);
+  const poly = toLocalPolygon(roofPolygon, refLat, refLng);
+  const p = latLngToLocalMeters(point.lat, point.lng, refLat, refLng);
+
+  let bestProj = null;
+  let bestDist = Infinity;
+  let segA = null;
+  let segB = null;
+
+  for (let i = 0; i < poly.length; i += 1) {
+    const a = poly[i];
+    const b = poly[(i + 1) % poly.length];
+    const proj = projectPointOnSegment(p, a, b);
+    const d = dist2d(p, proj);
+    if (d < bestDist) {
+      bestDist = d;
+      bestProj = proj;
+      segA = a;
+      segB = b;
+    }
+  }
+
+  if (!bestProj || !segA || !segB || bestDist > EDGE_PERIMETER_SNAP_M) return null;
+
+  const tdx = segB.x - segA.x;
+  const tdy = segB.y - segA.y;
+  const tlen = Math.hypot(tdx, tdy) || 1;
+  let nx = -tdy / tlen;
+  let ny = tdx / tlen;
+
+  const cx = poly.reduce((s, v) => s + v.x, 0) / poly.length;
+  const cy = poly.reduce((s, v) => s + v.y, 0) / poly.length;
+  const inward = (cx - bestProj.x) * nx + (cy - bestProj.y) * ny;
+  if (inward < 0) {
+    nx = -nx;
+    ny = -ny;
+  }
+
+  const lineP2 = { x: bestProj.x + nx, y: bestProj.y + ny };
+  const hits = [];
+  for (let i = 0; i < poly.length; i += 1) {
+    const a = poly[i];
+    const b = poly[(i + 1) % poly.length];
+    const inter = infiniteLineSegmentIntersection(bestProj, lineP2, a, b);
+    if (inter && !hits.some((h) => dist2d(h, inter) < 0.08)) hits.push(inter);
+  }
+
+  if (hits.length < 2) return null;
+
+  hits.sort((a, b) => {
+    const ta = (a.x - bestProj.x) * nx + (a.y - bestProj.y) * ny;
+    const tb = (b.x - bestProj.x) * nx + (b.y - bestProj.y) * ny;
+    return ta - tb;
+  });
+
+  return {
+    from: localMetersToLatLng(hits[0].x, hits[0].y, refLat, refLng),
+    to: localMetersToLatLng(hits[hits.length - 1].x, hits[hits.length - 1].y, refLat, refLng),
+  };
+}
+
 export function getPolygonRef(roofPolygon) {
   const refLat = roofPolygon.reduce((s, p) => s + p.lat, 0) / roofPolygon.length;
   const refLng = roofPolygon.reduce((s, p) => s + p.lng, 0) / roofPolygon.length;
   return { refLat, refLng };
+}
+
+/** Азимут направления (0°=север, 90°=восток) по стрелке from→to */
+export function azimuthDegFromArrow(fromLatLng, toLatLng, roofPolygon) {
+  if (!fromLatLng || !toLatLng) return null;
+  const { refLat, refLng } = roofPolygon?.length >= 3
+    ? getPolygonRef(roofPolygon)
+    : {
+      refLat: (fromLatLng.lat + toLatLng.lat) / 2,
+      refLng: (fromLatLng.lng + toLatLng.lng) / 2,
+    };
+  const a = latLngToLocalMeters(fromLatLng.lat, fromLatLng.lng, refLat, refLng);
+  const b = latLngToLocalMeters(toLatLng.lat, toLatLng.lng, refLat, refLng);
+  const dx = b.x - a.x; // east
+  const dy = b.y - a.y; // north
+  if (Math.hypot(dx, dy) < 0.01) return null;
+  let az = (Math.atan2(dx, dy) * 180) / Math.PI;
+  if (az < 0) az += 360;
+  return Math.round(az);
 }
 
 export function toLocalPolygon(roofPolygon, refLat, refLng) {
@@ -244,18 +363,19 @@ function polygonAreaLocal(points) {
   return Math.abs(sum) / 2;
 }
 
-export function computeFacets(roofPolygon, roofEdges, pitchDeg, fallbackAzimuth) {
+export function computeFacets(roofPolygon, roofEdges, pitchDeg, fallbackAzimuth, azimuthOverrides = {}) {
   if (!roofPolygon || roofPolygon.length < 3) return [];
 
   const { refLat, refLng } = getPolygonRef(roofPolygon);
   const polyLocal = toLocalPolygon(roofPolygon, refLat, refLng);
 
   if (!roofEdges?.length) {
+    const overrideAz = azimuthOverrides?.whole;
     return [{
       id: 'whole',
       polygon: polyLocal,
       pitchDeg,
-      azimuthDeg: fallbackAzimuth,
+      azimuthDeg: overrideAz != null ? overrideAz : fallbackAzimuth,
       active: true,
       label: 'Весь контур',
       areaM2: Math.round(polygonAreaLocal(polyLocal)),
@@ -270,41 +390,41 @@ export function computeFacets(roofPolygon, roofEdges, pitchDeg, fallbackAzimuth)
   for (let mask = 0; mask < (1 << n); mask += 1) {
     let poly = polyLocal;
     const sides = {};
-    let active = true;
+    let panelActive = true;
+    let geometric = true;
     const labelParts = [];
 
     for (let i = 0; i < n; i += 1) {
       const edge = roofEdges[i];
       const side = (mask & (1 << i)) ? 'b' : 'a';
       sides[edge.id] = side;
-      const sideActive = side === 'a' ? edge.sideAActive : edge.sideBActive;
-      if (!sideActive) {
-        active = false;
-        break;
-      }
+      const sideActive = side === 'a' ? edge.sideAActive !== false : edge.sideBActive !== false;
+      if (!sideActive) panelActive = false;
       const el = edgeToLocal(edge, refLat, refLng);
       poly = clipPolygonByHalfPlane(poly, el, side);
       if (poly.length < 3) {
-        active = false;
+        geometric = false;
         break;
       }
       labelParts.push(`Р${i + 1}${side === 'a' ? 'А' : 'Б'}`);
     }
 
-    if (!active || poly.length < 3) continue;
+    if (!geometric || poly.length < 3) continue;
 
     const area = polygonAreaLocal(poly);
     if (area < 0.5) continue;
 
+    const id = `f-${mask}`;
     const azEdge = roofEdges[roofEdges.length - 1];
-    const azimuthDeg = sideAzimuthDeg(azEdge, sides[azEdge.id], refLat, refLng);
+    const baseAz = sideAzimuthDeg(azEdge, sides[azEdge.id], refLat, refLng);
+    const azimuthDeg = azimuthOverrides?.[id] != null ? azimuthOverrides[id] : baseAz;
 
     facets.push({
-      id: `f-${mask}`,
+      id,
       polygon: poly,
       pitchDeg,
       azimuthDeg,
-      active: true,
+      active: panelActive,
       sides,
       label: labelParts.join(' · '),
       areaM2: Math.round(area),
