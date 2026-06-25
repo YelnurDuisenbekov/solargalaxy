@@ -363,7 +363,7 @@ export default function ConstructorGoogleMap({
         overlaysRef.current.obstacleHandles.push(m);
       });
     });
-  }, [roofPolygon, roofRectDraft, roofEdges, edgeDraft, obstacles, selectedObstacleId, lat, lng]);
+  }, [roofPolygon, roofRectDraft, roofEdges, edgeDraft, azimuthArrow, azimuthDraft, obstacles, selectedObstacleId, lat, lng]);
 
   if (fallback) {
     return (
