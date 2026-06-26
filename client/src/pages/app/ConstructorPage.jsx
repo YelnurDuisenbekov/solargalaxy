@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Reveal } from '../../components/motion/ScrollReveal';
@@ -6,6 +6,8 @@ import ConstructorMapView from '../../components/constructor/ConstructorMapView'
 import ConstructorAddressSearch from '../../components/constructor/ConstructorAddressSearch';
 import ConstructorInstructions from '../../components/constructor/ConstructorInstructions';
 import Constructor3D from '../../components/constructor/Constructor3D';
+import { useObstacleEditShortcuts } from '../../components/constructor/useObstacleEditShortcuts';
+import DecimalField from '../../components/constructor/DecimalField';
 import {
   INITIAL_CONSTRUCTOR_STATE,
   downloadJson,
@@ -23,6 +25,13 @@ import {
   snapPointToPerimeter,
 } from '../../utils/constructor/roofFacets.js';
 import {
+  azimuthFromEaveEdge,
+  findNearestRoofEdgeIndex,
+  moveRoofVertex,
+  setRoofEdgeLengthM,
+  setRoofVertexAngleDeg,
+} from '../../utils/constructor/roofGeometryEdit.js';
+import {
   applyObstacleMetricsPatch,
   defaultObstacle,
   finalizeObstacleMetrics,
@@ -30,6 +39,8 @@ import {
   isCircularShape,
   migrateObstacle,
   OBSTACLE_SHAPES,
+  OBSTACLE_CLEARANCE_M,
+  nudgeObstaclePlacement,
 } from '../../utils/constructor/obstacles.js';
 import { useGoogleMaps } from '../../hooks/useGoogleMaps';
 import './app-pages.css';
@@ -63,11 +74,79 @@ export default function ConstructorPage() {
   const obstacleMetricsIsPreset = !selectedObstacle;
   const obstacleIsRound = isCircularShape(obstacleMetrics.shape);
 
+  const onMutateObstacles = useCallback((recipe) => {
+    setState((s) => (typeof recipe === 'function' ? recipe(s) : recipe));
+  }, []);
+
+  const { mutateObstacles, beginObstacleGesture } = useObstacleEditShortcuts({
+    enabled: tab === 'site',
+    obstacles: state.obstacles,
+    selectedObstacleId: state.selectedObstacleId,
+    roofPolygon: state.roofPolygon,
+    onMutateObstacles,
+  });
+
   if (!isAdmin && !hasPerm('admin.full')) {
     return <Navigate to="/app" replace />;
   }
 
   const patch = (partial) => setState((s) => ({ ...s, ...partial }));
+
+  const invalidatePanels = (s) => ({ ...s, panels: [] });
+
+  const handleRoofVertexDrag = (index, lat, lng) => {
+    setState((s) => invalidatePanels({
+      ...s,
+      roofPolygon: moveRoofVertex(s.roofPolygon, index, lat, lng),
+      selectedRoofVertexIndex: index,
+    }));
+  };
+
+  const handleRoofVertexSelect = (index) => {
+    patch({ selectedRoofVertexIndex: index, selectedRoofEdgeIndex: null });
+  };
+
+  const handleRoofEdgeSelect = (index) => {
+    setState((s) => {
+      const next = {
+        ...s,
+        selectedRoofEdgeIndex: index,
+        selectedRoofVertexIndex: null,
+      };
+      if (s.drawMode === 'azimuth' && !(s.roofEdges?.length)) {
+        const az = azimuthFromEaveEdge(s.roofPolygon, index);
+        if (az != null) {
+          next.slopeEaveEdgeIndex = index;
+          next.azimuthDeg = az;
+          next.facetAzimuthOverrides = { ...(s.facetAzimuthOverrides || {}), whole: az };
+          next.azimuthArrow = null;
+          next.azimuthDraft = [];
+          next.panels = [];
+        }
+      }
+      return next;
+    });
+  };
+
+  const handleRoofEdgeLengthChange = (edgeIndex, value) => {
+    const v = Number(value);
+    if (Number.isNaN(v) || v < 0.1) return;
+    setState((s) => invalidatePanels({
+      ...s,
+      roofPolygon: setRoofEdgeLengthM(s.roofPolygon, edgeIndex, v),
+      selectedRoofEdgeIndex: edgeIndex,
+    }));
+  };
+
+  const handleRoofVertexAngleChange = (vertexIndex, value) => {
+    const v = Number(value);
+    if (Number.isNaN(v) || v < 1 || v > 179) return;
+    setState((s) => invalidatePanels({
+      ...s,
+      roofPolygon: setRoofVertexAngleDeg(s.roofPolygon, vertexIndex, v),
+      selectedRoofVertexIndex: vertexIndex,
+    }));
+  };
 
   const saveDraft = () => {
     localStorage.setItem('sg-constructor-draft', JSON.stringify(state));
@@ -76,6 +155,31 @@ export default function ConstructorPage() {
   const handleMapClick = ({ lat, lng }) => {
     setState((s) => {
       const point = { lat, lng };
+
+      if (s.drawMode === 'refine') {
+        const edgeIdx = findNearestRoofEdgeIndex(point, s.roofPolygon, 10);
+        if (edgeIdx != null) {
+          return { ...s, selectedRoofEdgeIndex: edgeIdx, selectedRoofVertexIndex: null };
+        }
+        return s;
+      }
+
+      if (s.drawMode === 'azimuth' && !(s.roofEdges?.length)) {
+        const edgeIdx = findNearestRoofEdgeIndex(point, s.roofPolygon, 12);
+        if (edgeIdx == null) return s;
+        const az = azimuthFromEaveEdge(s.roofPolygon, edgeIdx);
+        if (az == null) return s;
+        return {
+          ...s,
+          slopeEaveEdgeIndex: edgeIdx,
+          selectedRoofEdgeIndex: edgeIdx,
+          azimuthDeg: az,
+          facetAzimuthOverrides: { ...(s.facetAzimuthOverrides || {}), whole: az },
+          azimuthArrow: null,
+          azimuthDraft: [],
+          panels: [],
+        };
+      }
 
       if (s.drawMode === 'roof') {
         if (s.roofShape === 'rectangle') {
@@ -217,14 +321,21 @@ export default function ConstructorPage() {
   };
 
   const handleObstacleAdd = ({ lat, lng }) => {
-    setState((s) => {
+    mutateObstacles((s) => {
       const shape = s.obstacleShape || 'tree';
       const preset = finalizeObstacleMetrics({
         shape,
         ...(s.obstaclePreset || getShapeDefaults(shape)),
         rotationDeg: s.obstaclePreset?.rotationDeg ?? 0,
       });
-      const obs = defaultObstacle(shape, lat, lng, preset);
+      const placed = nudgeObstaclePlacement(
+        lat,
+        lng,
+        s.obstacles,
+        s.roofPolygon,
+        s.obstacleClearanceM ?? OBSTACLE_CLEARANCE_M,
+      );
+      const obs = defaultObstacle(shape, placed.lat, placed.lng, preset);
       return {
         ...s,
         obstacles: [...(s.obstacles || []), obs],
@@ -262,12 +373,17 @@ export default function ConstructorPage() {
     const apply = (base) => (commit ? finalizeObstacleMetrics(applyObstacleMetricsPatch(base, fields)) : applyObstacleMetricsPatch(base, fields));
 
     if (selectedObstacle) {
-      setState((s) => ({
+      const applyToState = (s) => ({
         ...s,
         obstacles: (s.obstacles || []).map((o) => (
           o.id === selectedObstacle.id ? apply(o) : o
         )),
-      }));
+      });
+      if (commit) {
+        mutateObstacles(applyToState);
+      } else {
+        setState(applyToState);
+      }
       return;
     }
     patch({
@@ -275,69 +391,55 @@ export default function ConstructorPage() {
     });
   };
 
-  const commitObstacleMetrics = () => {
-    if (selectedObstacle) {
-      setState((s) => ({
-        ...s,
-        obstacles: (s.obstacles || []).map((o) => (
-          o.id === selectedObstacle.id ? finalizeObstacleMetrics(o) : o
-        )),
-      }));
-      return;
-    }
+  const commitObstacleField = (fields) => {
+    patchObstacleMetrics(fields, { commit: true });
+  };
+
+  const handleObstacleSelect3d = (id) => {
+    const obs = (state.obstacles || []).find((o) => o.id === id);
     patch({
-      obstaclePreset: finalizeObstacleMetrics({ ...state.obstaclePreset, shape: state.obstacleShape }),
+      selectedObstacleId: id,
+      ...(obs ? { obstacleShape: obs.shape } : {}),
     });
   };
 
-  const metricInputProps = (key) => ({
-    className: 'input input--plain-num',
-    type: 'text',
-    inputMode: 'decimal',
-    value: obstacleMetrics[key] ?? '',
-    onChange: (e) => {
-      const raw = e.target.value.trim().replace(',', '.');
-      if (raw === '') {
-        patchObstacleMetrics({ [key]: null });
-        return;
-      }
-      const n = Number(raw);
-      if (!Number.isNaN(n)) patchObstacleMetrics({ [key]: n });
-    },
-    onBlur: commitObstacleMetrics,
-  });
+  const selectObstacleShape3d = (shapeId) => {
+    const d = getShapeDefaults(shapeId);
+    patch({
+      obstacleShape: shapeId,
+      selectedObstacleId: null,
+      obstaclePreset: {
+        heightM: d.heightM,
+        widthM: d.widthM,
+        lengthM: d.lengthM,
+        rotationDeg: 0,
+      },
+    });
+  };
 
-  const diameterInputProps = () => ({
-    className: 'input input--plain-num',
-    type: 'text',
-    inputMode: 'decimal',
-    value: obstacleMetrics.widthM ?? obstacleMetrics.lengthM ?? '',
-    onChange: (e) => {
-      const raw = e.target.value.trim().replace(',', '.');
-      if (raw === '') {
-        patchObstacleMetrics({ widthM: null, lengthM: null });
-        return;
-      }
-      const n = Number(raw);
-      if (!Number.isNaN(n)) patchObstacleMetrics({ widthM: n, lengthM: n });
-    },
-    onBlur: commitObstacleMetrics,
-  });
-
-  const handleObstacleUpdate = (updated) => {
+  const handleObstacleUpdate = (updated, { transient = false } = {}) => {
     const obs = migrateObstacle(updated);
     setTab('site');
-    setState((s) => ({
+    const recipe = (s) => ({
       ...s,
       drawMode: 'obstacle',
       obstacleShape: obs.shape,
       obstacles: (s.obstacles || []).map((o) => (o.id === obs.id ? obs : o)),
       selectedObstacleId: obs.id,
-    }));
+    });
+    if (transient) {
+      setState(recipe);
+      return;
+    }
+    mutateObstacles(recipe);
+  };
+
+  const handleObstacleGestureStart = () => {
+    beginObstacleGesture();
   };
 
   const removeObstacle = (id) => {
-    setState((s) => ({
+    mutateObstacles((s) => ({
       ...s,
       obstacles: (s.obstacles || []).filter((o) => o.id !== id),
       selectedObstacleId: s.selectedObstacleId === id ? null : s.selectedObstacleId,
@@ -482,20 +584,30 @@ export default function ConstructorPage() {
               <div className="constructor-draw-modes">
                 {[
                   ['roof', '① Углы крыши'],
-                  ['edge', '② Рёбра крыши'],
-                  ['azimuth', '③ Азимут'],
-                  ['obstacle', '④ Препятствие'],
+                  ['refine', '② Чертёж'],
+                  ['edge', '③ Рёбра крыши'],
+                  ['azimuth', '④ Азимут'],
+                  ['obstacle', '⑤ Препятствие'],
                   ['view', 'Просмотр'],
                 ].map(([mode, label]) => (
                   <button
                     key={mode}
                     type="button"
                     className={`btn btn--sm${state.drawMode === mode ? ' btn--primary' : ' btn--outline-dark'}`}
+                    disabled={mode === 'refine' && state.roofPolygon.length < 3}
+                    title={mode === 'refine' && state.roofPolygon.length < 3 ? 'Сначала обведите контур крыши' : undefined}
                     onClick={() => {
                       if (mode === 'obstacle') {
                         selectObstacleShape(state.obstacleShape || 'tree');
                       } else {
-                        patch({ drawMode: mode, edgeDraft: [], azimuthDraft: [], roofRectDraft: [] });
+                        patch({
+                          drawMode: mode,
+                          edgeDraft: [],
+                          azimuthDraft: [],
+                          roofRectDraft: [],
+                          selectedRoofVertexIndex: null,
+                          selectedRoofEdgeIndex: null,
+                        });
                       }
                     }}
                   >
@@ -503,10 +615,21 @@ export default function ConstructorPage() {
                   </button>
                 ))}
               </div>
-              {state.drawMode === 'azimuth' && (
+              {state.drawMode === 'refine' && (
                 <p className="constructor-active-hint">
-                  <strong>Азимут ската:</strong> 1-й клик — хвост стрелки, 2-й — направление.
-                  Потом клик по наконечнику (второй точке) — поправить.
+                  <strong>Чертёж:</strong> тяните углы · <strong>L</strong> — длина, м · <strong>∠</strong> — угол, °.
+                  Введите значение и нажмите <strong>Enter</strong> (или клик вне поля).
+                </p>
+              )}
+              {state.drawMode === 'azimuth' && !(state.roofEdges?.length) && (
+                <p className="constructor-active-hint">
+                  <strong>Односкатная крыша:</strong> кликните по стороне-карнизу (жёлтая подсветка) — скат идёт внутрь контура, перпендикулярно ей.
+                  {state.slopeEaveEdgeIndex != null && ` · Карниз: сторона ${state.slopeEaveEdgeIndex + 1} · азимут ${state.azimuthDeg}°`}
+                </p>
+              )}
+              {state.drawMode === 'azimuth' && (state.roofEdges?.length > 0) && (
+                <p className="constructor-active-hint">
+                  <strong>Многоскатная крыша:</strong> 1-й клик — хвост стрелки, 2-й — направление ската.
                   {' '}
                   Сейчас: <strong>{state.azimuthDeg}°</strong> (0°=север, 180°=юг)
                 </p>
@@ -567,8 +690,10 @@ export default function ConstructorPage() {
                     ))}
                   </div>
                   <p className="constructor-active-hint">
-                    <strong>Препятствие:</strong> выберите тип — ниже появятся метрики.
-                    Клик на карте — новая фигура. Клик по фигуре — редактирование.
+                    <strong>Препятствие:</strong> выберите тип — ниже метрики.
+                    Клик на карте — новая фигура. Тяните фигуру для перемещения, маркеры — для размера.
+                    Отступ от препятствий: настраивается в 3D → вкладка «Параметры».
+                    Ctrl+C копировать · Ctrl+V вставить · Ctrl+Z отменить
                     {(state.obstacles?.length || 0) > 0 && ` · Всего: ${state.obstacles.length}`}
                   </p>
 
@@ -579,22 +704,54 @@ export default function ConstructorPage() {
                     <div className="constructor-form-grid">
                       <label>
                         Высота, м
-                        <input {...metricInputProps('heightM')} />
+                        <DecimalField
+                          className="input input--plain-num"
+                          value={obstacleMetrics.heightM ?? 0}
+                          min={0.1}
+                          max={200}
+                          decimals={2}
+                          title="Enter — применить"
+                          onCommit={(v) => commitObstacleField({ heightM: v })}
+                        />
                       </label>
                       {obstacleIsRound ? (
                         <label>
                           Диаметр, м
-                          <input {...diameterInputProps()} />
+                          <DecimalField
+                            className="input input--plain-num"
+                            value={obstacleMetrics.widthM ?? obstacleMetrics.lengthM ?? 0}
+                            min={0.1}
+                            max={200}
+                            decimals={2}
+                            title="Enter — применить"
+                            onCommit={(v) => commitObstacleField({ widthM: v, lengthM: v })}
+                          />
                         </label>
                       ) : (
                         <>
                           <label>
                             Ширина, м
-                            <input {...metricInputProps('widthM')} />
+                            <DecimalField
+                              className="input input--plain-num"
+                              value={obstacleMetrics.widthM ?? 0}
+                              min={0.1}
+                              max={200}
+                              decimals={2}
+                              title="Enter — применить"
+                              onCommit={(v) => commitObstacleField({ widthM: v })}
+                            />
                           </label>
                           <label>
                             Длина, м
-                            <input {...metricInputProps('lengthM')} />
+                            <DecimalField
+                              className="input input--plain-num"
+                              value={obstacleMetrics.lengthM ?? 0}
+                              min={0.1}
+                              max={200}
+                              decimals={2}
+                              title="Enter — применить"
+                              onCommit={(v) => commitObstacleField({ lengthM: v })}
+                            />
                           </label>
                         </>
                       )}
@@ -602,18 +759,42 @@ export default function ConstructorPage() {
                         <>
                           <label>
                             Широта
-                            <input {...metricInputProps('lat')} />
+                            <DecimalField
+                              className="input input--plain-num"
+                              value={obstacleMetrics.lat ?? 0}
+                              min={-90}
+                              max={90}
+                              decimals={6}
+                              title="Enter — применить"
+                              onCommit={(v) => commitObstacleField({ lat: v })}
+                            />
                           </label>
                           <label>
                             Долгота
-                            <input {...metricInputProps('lng')} />
+                            <DecimalField
+                              className="input input--plain-num"
+                              value={obstacleMetrics.lng ?? 0}
+                              min={-180}
+                              max={180}
+                              decimals={6}
+                              title="Enter — применить"
+                              onCommit={(v) => commitObstacleField({ lng: v })}
+                            />
                           </label>
                         </>
                       )}
                       {!obstacleIsRound && (
                         <label>
                           Поворот, °
-                          <input {...metricInputProps('rotationDeg')} />
+                          <DecimalField
+                            className="input input--plain-num"
+                            value={obstacleMetrics.rotationDeg ?? 0}
+                            min={0}
+                            max={359}
+                            decimals={0}
+                            title="Enter — применить"
+                            onCommit={(v) => commitObstacleField({ rotationDeg: ((Math.round(v) % 360) + 360) % 360 })}
+                          />
                         </label>
                       )}
                 </div>
@@ -729,234 +910,100 @@ export default function ConstructorPage() {
                 </ul>
               )}
             </div>
-
-            <ConstructorMapView
-              lat={state.lat}
-              lng={state.lng}
-              roofPolygon={state.roofPolygon}
-              roofRectDraft={state.roofRectDraft}
-              roofEdges={state.roofEdges}
-              edgeDraft={state.edgeDraft}
-              azimuthArrow={state.azimuthArrow}
-              azimuthDraft={state.azimuthDraft}
-              obstacles={state.obstacles}
-              selectedObstacleId={state.selectedObstacleId}
-              drawMode={state.drawMode}
-              mapStyle={state.mapStyle || 'hybrid'}
-              flyToKey={state.mapFlyKey}
-              onMapClick={handleMapClick}
-              onObstacleAdd={handleObstacleAdd}
-              onObstacleSelect={handleObstacleSelect}
-              onObstacleUpdate={handleObstacleUpdate}
-            />
           </div>
 
-          <div className="card app-section-card constructor-section">
-            <h2 className="constructor-section-title">Параметры конструктора</h2>
-            <p className="constructor-section-desc">Геометрия крыши для расчёта панелей и 3D-модели</p>
+          <div className="constructor-map-3d-split">
+            <div className="card app-section-card constructor-map-column">
+              <h2 className="constructor-section-title">Карта участка</h2>
+              <ConstructorMapView
+                lat={state.lat}
+                lng={state.lng}
+                roofPolygon={state.roofPolygon}
+                roofRectDraft={state.roofRectDraft}
+                roofEdges={state.roofEdges}
+                edgeDraft={state.edgeDraft}
+                azimuthArrow={state.azimuthArrow}
+                azimuthDraft={state.azimuthDraft}
+                obstacles={state.obstacles}
+                selectedObstacleId={state.selectedObstacleId}
+                drawMode={state.drawMode}
+                mapStyle={state.mapStyle || 'hybrid'}
+                flyToKey={state.mapFlyKey}
+                selectedRoofVertexIndex={state.selectedRoofVertexIndex}
+                selectedRoofEdgeIndex={state.selectedRoofEdgeIndex}
+              slopeEaveEdgeIndex={state.slopeEaveEdgeIndex}
+              pitchDeg={state.pitchDeg}
+              azimuthDeg={state.azimuthDeg}
+              facetAzimuthOverrides={state.facetAzimuthOverrides || {}}
+              selectedFacetId={state.selectedFacetId}
+              onMapClick={handleMapClick}
+                onObstacleAdd={handleObstacleAdd}
+                onObstacleSelect={handleObstacleSelect}
+                onObstacleUpdate={handleObstacleUpdate}
+                onObstacleGestureStart={handleObstacleGestureStart}
+                onRoofVertexDrag={handleRoofVertexDrag}
+                onRoofVertexSelect={handleRoofVertexSelect}
+                onRoofEdgeSelect={handleRoofEdgeSelect}
+                onRoofEdgeLengthChange={handleRoofEdgeLengthChange}
+                onRoofVertexAngleChange={handleRoofVertexAngleChange}
+              />
+            </div>
 
-            <div className="constructor-grid-2">
-              <div className="constructor-params">
-                <div className="constructor-form-grid constructor-params__grid">
-                  <label>
-                    Уклон крыши, °
-                    <input
-                      className="input input--plain-num"
-                      type="text"
-                      inputMode="decimal"
-                      value={state.pitchDeg}
-                      onChange={(e) => {
-                        const raw = e.target.value.trim().replace(',', '.');
-                        if (raw === '') return;
-                        const v = Number(raw);
-                        if (!Number.isNaN(v)) patch({ pitchDeg: v });
-                      }}
-                      onBlur={(e) => {
-                        const v = Number(e.target.value.replace(',', '.'));
-                        if (Number.isNaN(v)) patch({ pitchDeg: 25 });
-                        else patch({ pitchDeg: Math.min(60, Math.max(5, v)) });
-                      }}
-                    />
-                  </label>
-                  <label>
-                    Азимут ската, °
-                    <input
-                      className="input input--plain-num"
-                      type="text"
-                      inputMode="decimal"
-                      value={state.azimuthDeg}
-                      disabled={(state.roofEdges?.length || 0) > 0}
-                      title={(state.roofEdges?.length || 0) > 0 ? 'При рёбрах азимут считается автоматически для каждого ската' : '180° = юг'}
-                      onChange={(e) => {
-                        const raw = e.target.value.trim().replace(',', '.');
-                        if (raw === '') return;
-                        const v = Number(raw);
-                        if (!Number.isNaN(v)) patch({ azimuthDeg: v });
-                      }}
-                      onBlur={(e) => {
-                        const v = Number(e.target.value.replace(',', '.'));
-                        if (Number.isNaN(v)) patch({ azimuthDeg: 180 });
-                        else patch({ azimuthDeg: ((Math.round(v) % 360) + 360) % 360 });
-                      }}
-                    />
-                  </label>
-                  <label>
-                    Высота крыши от земли, м
-                    <input
-                      className="input input--plain-num"
-                      type="text"
-                      inputMode="decimal"
-                      title="Высота карниза / основания крыши над уровнем земли"
-                      value={state.roofBaseHeightM ?? 0}
-                      onChange={(e) => {
-                        const raw = e.target.value.trim().replace(',', '.');
-                        if (raw === '') return;
-                        const v = Number(raw);
-                        if (!Number.isNaN(v)) patch({ roofBaseHeightM: v });
-                      }}
-                      onBlur={(e) => {
-                        const v = Number(e.target.value.replace(',', '.'));
-                        if (Number.isNaN(v)) patch({ roofBaseHeightM: 0 });
-                        else patch({ roofBaseHeightM: Math.min(80, Math.max(0, v)) });
-                      }}
-                    />
-                  </label>
-                  <label>
-                    Отступ от края крыши, м
-                    <input
-                      className="input input--plain-num"
-                      type="number"
-                      inputMode="decimal"
-                      min={0}
-                      step={0.01}
-                      title="Минимальное расстояние от края контура крыши до панели"
-                      value={state.panelEdgeMarginM ?? 1}
-                      onChange={(e) => {
-                        const raw = e.target.value;
-                        if (raw === '') return;
-                        const v = Number(raw.replace(',', '.'));
-                        if (!Number.isNaN(v)) patch({ panelEdgeMarginM: v });
-                      }}
-                      onBlur={(e) => {
-                        const v = Number(String(e.target.value).replace(',', '.'));
-                        if (Number.isNaN(v)) patch({ panelEdgeMarginM: 1 });
-                        else patch({ panelEdgeMarginM: Math.round(Math.min(10, Math.max(0, v)) * 100) / 100 });
-                      }}
-                    />
-                  </label>
-                  <label>
-                    Зазор между панелями, м
-                    <input
-                      className="input input--plain-num"
-                      type="number"
-                      inputMode="decimal"
-                      min={0}
-                      step={0.01}
-                      title="Расстояние между панелями по рядам и столбцам"
-                      value={state.panelSpacingM ?? 0.02}
-                      onChange={(e) => {
-                        const raw = e.target.value;
-                        if (raw === '') return;
-                        const v = Number(raw.replace(',', '.'));
-                        if (!Number.isNaN(v)) patch({ panelSpacingM: v });
-                      }}
-                      onBlur={(e) => {
-                        const v = Number(String(e.target.value).replace(',', '.'));
-                        if (Number.isNaN(v)) patch({ panelSpacingM: 0.02 });
-                        else patch({ panelSpacingM: Math.round(Math.min(10, Math.max(0, v)) * 100) / 100 });
-                      }}
-                    />
-                  </label>
-                </div>
-                <p className="constructor-params__note">
-                  Высота от земли — до карниза. Конёк выше на величину, зависящую от уклона и размера крыши.
-                  Отступ от края — до ближайшей границы контура; зазор — между соседними панелями.
-                  {(state.roofEdges?.length || 0) === 0 && ' 180° = юг (азимут без рёбер).'}
-                </p>
-                {facets.length > 0 && (
-                  <>
-                    <p className="constructor-params__note">
-                      Выберите скат для расстановки панелей. Неактивные скаты остаются без панелей.
-                      {state.selectedFacetId
-                        ? ` Выбран: ${facets.find((f) => f.id === state.selectedFacetId)?.label || '—'}`
-                        : ' Сейчас: все активные скаты'}
-                    </p>
-                    <ul className="constructor-facet-list">
-                      {facets.map((f) => (
-                        <li key={f.id}>
-                          <button
-                            type="button"
-                            className={[
-                              'constructor-facet-pick',
-                              f.active === false ? 'constructor-facet-pick--off' : '',
-                              state.selectedFacetId === f.id ? 'constructor-facet-pick--selected' : '',
-                            ].filter(Boolean).join(' ')}
-                            disabled={f.active === false}
-                            onClick={() => patch({
-                              selectedFacetId: state.selectedFacetId === f.id ? null : f.id,
-                            })}
-                          >
-                            <strong>{f.label}</strong>
-                            {f.active === false && ' (выкл.)'}
-                            {' · '}
-                            ~{f.areaM2} м² · азимут {f.azimuthDeg}°
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-                <dl className="app-dl constructor-roof-stats">
-                  <dt>Площадь контура</dt>
-                  <dd>{state.roofPolygon.length >= 3 ? `~${Math.round(derived.roofAreaM2)} м²` : '— обведите крышу'}</dd>
-                  <dt>Углов отмечено</dt>
-                  <dd>{state.roofPolygon.length}</dd>
-                  <dt>Рёбер / скатов</dt>
-                  <dd>
-                    {(state.roofEdges?.length || 0) || '—'}
-                    {facets.length > 0 ? ` / ${facets.length} скатов` : ''}
-                  </dd>
-                  <dt>Карниз от земли</dt>
-                  <dd>{state.roofPolygon.length >= 3 ? `${state.roofBaseHeightM ?? 0} м` : '—'}</dd>
-                  <dt>Панелей (расчёт)</dt>
-                  <dd>{summary.activePanelCount || '—'}</dd>
-                </dl>
-              </div>
-              <div className="constructor-3d-block">
-                <h3 className="constructor-subsection__title">3D-модель крыши</h3>
-                <Constructor3D
-                  roofPolygon={state.roofPolygon}
-                  roofEdges={state.roofEdges}
-                  pitchDeg={state.pitchDeg}
-                  azimuthDeg={state.azimuthDeg}
-                  facetAzimuthOverrides={state.facetAzimuthOverrides || {}}
-                  roofBaseHeightM={state.roofBaseHeightM ?? 0}
-                  obstacles={state.obstacles}
-                  hasRoof={state.roofPolygon.length >= 3}
-                  panels={panels}
-                  module={derived.module}
-                  panelsVisible3d={state.panelsVisible3d}
-                  panelMountMode={state.panelMountMode}
-                  panelMountTiltDeg={state.panelMountTiltDeg}
-                  panelLayout={state.panelLayout}
-                  moduleSku={state.moduleSku}
-                  facets={facets}
-                  selectedFacetId={state.selectedFacetId}
-                  onFacetSelect={(facetId) => patch({ selectedFacetId: facetId })}
-                  onAddPanels={() => patch({ panelsVisible3d: true })}
-                  onMountModeChange={(mode) => patch({ panelMountMode: mode })}
-                  onMountTiltChange={(panelMountTiltDeg) => patch({ panelMountTiltDeg })}
-                  onLayoutChange={(panelLayout) => patch({ panelLayout, panels: [] })}
-                  onModuleChange={(moduleSku) => patch({ moduleSku, panels: [] })}
-                  onEdgeSideChange={(edgeId, side, active) => patch({
-                    roofEdges: state.roofEdges.map((ed) => (
-                      ed.id === edgeId
-                        ? { ...ed, [side === 'a' ? 'sideAActive' : 'sideBActive']: active }
-                        : ed
-                    )),
-                  })}
-                />
-              </div>
+            <div className="card app-section-card constructor-3d-column">
+              <h2 className="constructor-section-title">3D-модель</h2>
+              <p className="constructor-section-desc">Панели, препятствия и параметры крыши — изменения видны сразу на карте</p>
+              <Constructor3D
+                roofPolygon={state.roofPolygon}
+                roofEdges={state.roofEdges}
+                pitchDeg={state.pitchDeg}
+                azimuthDeg={state.azimuthDeg}
+                facetAzimuthOverrides={state.facetAzimuthOverrides || {}}
+                roofBaseHeightM={state.roofBaseHeightM ?? 0}
+                obstacles={state.obstacles}
+                hasRoof={state.roofPolygon.length >= 3}
+                panels={panels}
+                module={derived.module}
+                panelsVisible3d={state.panelsVisible3d}
+                panelMountMode={state.panelMountMode}
+                panelMountTiltDeg={state.panelMountTiltDeg}
+                panelLayout={state.panelLayout}
+                moduleSku={state.moduleSku}
+                facets={facets}
+                selectedFacetId={state.selectedFacetId}
+                panelEdgeMarginM={state.panelEdgeMarginM}
+                panelSpacingM={state.panelSpacingM}
+                obstacleClearanceM={state.obstacleClearanceM}
+                roofVertexCount={state.roofPolygon.length}
+                roofEdgeCount={state.roofEdges?.length || 0}
+                roofAreaM2={derived.roofAreaM2}
+                activePanelCount={summary.activePanelCount}
+                onParamsPatch={patch}
+                onFacetSelect={(facetId) => patch({ selectedFacetId: facetId })}
+                onAddPanels={() => patch({ panelsVisible3d: true })}
+                onMountModeChange={(mode) => patch({ panelMountMode: mode })}
+                onMountTiltChange={(panelMountTiltDeg) => patch({ panelMountTiltDeg })}
+                onLayoutChange={(panelLayout) => patch({ panelLayout, panels: [] })}
+                onModuleChange={(moduleSku) => patch({ moduleSku, panels: [] })}
+                onEdgeSideChange={(edgeId, side, active) => patch({
+                  roofEdges: state.roofEdges.map((ed) => (
+                    ed.id === edgeId
+                      ? { ...ed, [side === 'a' ? 'sideAActive' : 'sideBActive']: active }
+                      : ed
+                  )),
+                })}
+                obstacleShape={state.obstacleShape}
+                obstaclePreset={state.obstaclePreset}
+                obstacleMetrics={obstacleMetrics}
+                obstacleMetricsIsPreset={obstacleMetricsIsPreset}
+                selectedObstacleId={state.selectedObstacleId}
+                onObstacleAdd={handleObstacleAdd}
+                onObstacleSelect={handleObstacleSelect3d}
+                onObstacleUpdate={handleObstacleUpdate}
+                onObstacleGestureStart={handleObstacleGestureStart}
+                onObstacleShapeSelect={selectObstacleShape3d}
+                onObstacleFieldCommit={commitObstacleField}
+                onObstacleRemove={removeObstacle}
+              />
             </div>
           </div>
         </div>
@@ -981,7 +1028,15 @@ export default function ConstructorPage() {
               </label>
               <label>
                 Панелей в строке (DC)
-                <input className="input" type="number" min="6" max="24" value={state.panelsPerString} onChange={(e) => patch({ panelsPerString: +e.target.value })} />
+                <DecimalField
+                  className="input input--plain-num"
+                  value={state.panelsPerString}
+                  min={6}
+                  max={24}
+                  decimals={0}
+                  title="Enter — применить"
+                  onCommit={(v) => patch({ panelsPerString: v })}
+                />
               </label>
             </div>
             <button type="button" className="btn btn--primary" style={{ marginTop: 12 }} onClick={() => patch({ panels: [] })}>
@@ -1019,7 +1074,15 @@ export default function ConstructorPage() {
                 </label>
                 <label>
                   Потери от тени, %
-                  <input className="input" type="number" min="0" max="100" value={selectedPanel.shadeLossPct} onChange={(e) => updatePanel(selectedPanel.id, { shadeLossPct: +e.target.value })} />
+                  <DecimalField
+                    className="input input--plain-num"
+                    value={selectedPanel.shadeLossPct}
+                    min={0}
+                    max={100}
+                    decimals={0}
+                    title="Enter — применить"
+                    onCommit={(v) => updatePanel(selectedPanel.id, { shadeLossPct: v })}
+                  />
                 </label>
                 <label>
                   Примечание
@@ -1060,7 +1123,15 @@ export default function ConstructorPage() {
             <h2 className="app-section-card__title">Кабельный журнал (DC)</h2>
             <label>
               Расстояние крыша → инвертор, м
-              <input className="input" type="number" min="5" max="200" value={state.roofToInverterM} onChange={(e) => patch({ roofToInverterM: +e.target.value })} />
+              <DecimalField
+                className="input input--plain-num"
+                value={state.roofToInverterM}
+                min={5}
+                max={200}
+                decimals={0}
+                title="Enter — применить"
+                onCommit={(v) => patch({ roofToInverterM: v })}
+              />
             </label>
             <table className="app-table" style={{ marginTop: 12 }}>
               <thead>
@@ -1116,11 +1187,26 @@ export default function ConstructorPage() {
             <div className="constructor-form-grid">
               <label>
                 Тариф, ₸/кВт·ч
-                <input className="input" type="number" value={state.tariffPerKwh} onChange={(e) => patch({ tariffPerKwh: +e.target.value })} />
+                <DecimalField
+                  className="input input--plain-num"
+                  value={state.tariffPerKwh}
+                  min={0}
+                  decimals={2}
+                  title="Enter — применить"
+                  onCommit={(v) => patch({ tariffPerKwh: v })}
+                />
               </label>
               <label>
                 Самопотребление, %
-                <input className="input" type="number" min="0" max="100" value={state.selfConsumptionPct} onChange={(e) => patch({ selfConsumptionPct: +e.target.value })} />
+                <DecimalField
+                  className="input input--plain-num"
+                  value={state.selfConsumptionPct}
+                  min={0}
+                  max={100}
+                  decimals={0}
+                  title="Enter — применить"
+                  onCommit={(v) => patch({ selfConsumptionPct: v })}
+                />
               </label>
             </div>
             <dl className="app-dl" style={{ marginTop: 16 }}>

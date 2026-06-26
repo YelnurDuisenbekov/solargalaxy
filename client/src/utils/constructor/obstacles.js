@@ -1,6 +1,10 @@
 /** Модель препятствий на карте конструктора */
 
 import { latLngToLocalMeters, localMetersToLatLng } from './calc.js';
+import { getPolygonRef } from './roofFacets.js';
+
+/** Зазор вокруг препятствия при расстановке панелей и при добавлении новых фигур, м */
+export const OBSTACLE_CLEARANCE_M = 0.5;
 
 export const OBSTACLE_SHAPES = [
   { id: 'tree', label: 'Дерево', icon: '🌳' },
@@ -226,6 +230,70 @@ export function resizeObstacleEdge(obs, edgeIndex, lat, lng) {
 export function obstacleShadowRadius(obs) {
   if (isCircularShape(obs.shape)) return Math.max(obs.widthM, obs.lengthM) / 2;
   return Math.sqrt(obs.widthM * obs.lengthM) / 2;
+}
+
+/** Препятствие с увеличенным контуром (зазор) */
+export function obstacleWithClearance(obs, clearanceM = OBSTACLE_CLEARANCE_M) {
+  const pad = Math.max(0, clearanceM) * 2;
+  if (isCircularShape(obs.shape)) {
+    const d = Math.max(obs.widthM, obs.lengthM) + pad;
+    return { ...obs, widthM: d, lengthM: d };
+  }
+  return { ...obs, widthM: obs.widthM + pad, lengthM: obs.lengthM + pad };
+}
+
+/** Точка (локальные метры от ref крыши) в зоне препятствия + зазор */
+export function localPointInObstacleClearance(x, y, obs, refLat, refLng, clearanceM = OBSTACLE_CLEARANCE_M) {
+  const ll = localMetersToLatLng(x, y, refLat, refLng);
+  return pointInObstacle(ll.lat, ll.lng, obstacleWithClearance(obs, clearanceM));
+}
+
+/** Любой угол панели попадает в зону препятствия */
+export function panelCornersOverlapObstacles(corners, obstacles, refLat, refLng, clearanceM = OBSTACLE_CLEARANCE_M) {
+  if (!obstacles?.length) return false;
+  return corners.some(({ x, y }) => (
+    obstacles.some((obs) => localPointInObstacleClearance(x, y, obs, refLat, refLng, clearanceM))
+  ));
+}
+
+/**
+ * Сдвинуть точку размещения, если она слишком близко к существующим препятствиям.
+ */
+export function nudgeObstaclePlacement(lat, lng, obstacles, roofPolygon, clearanceM = OBSTACLE_CLEARANCE_M) {
+  if (!roofPolygon?.length || !obstacles?.length) return { lat, lng };
+  const { refLat, refLng } = getPolygonRef(roofPolygon);
+  let local = latLngToLocalMeters(lat, lng, refLat, refLng);
+  let { x, y } = local;
+
+  for (let iter = 0; iter < 24; iter += 1) {
+    let pushed = false;
+    for (const raw of obstacles) {
+      const obs = migrateObstacle(raw);
+      const center = latLngToLocalMeters(obs.lat, obs.lng, refLat, refLng);
+      if (isCircularShape(obs.shape)) {
+        const r = Math.max(obs.widthM, obs.lengthM) / 2 + clearanceM;
+        const d = Math.hypot(x - center.x, y - center.y);
+        if (d < r) {
+          const push = r - d + 0.08;
+          const nx = d > 1e-4 ? (x - center.x) / d : 1;
+          const ny = d > 1e-4 ? (y - center.y) / d : 0;
+          x += nx * push;
+          y += ny * push;
+          pushed = true;
+        }
+      } else if (localPointInObstacleClearance(x, y, obs, refLat, refLng, clearanceM)) {
+        const dx = x - center.x;
+        const dy = y - center.y;
+        const d = Math.hypot(dx, dy) || 1;
+        x += (dx / d) * 0.35;
+        y += (dy / d) * 0.35;
+        pushed = true;
+      }
+    }
+    if (!pushed) break;
+  }
+
+  return localMetersToLatLng(x, y, refLat, refLng);
 }
 
 export function clampObstacleMetrics(obs) {

@@ -22,7 +22,7 @@ import {
 
 import { DEFAULT_INVERTER, DEFAULT_MODULE, findInverter, findModule } from '../../utils/constructor/equipment.js';
 
-import { computeFacets, migrateRidgeToEdges } from '../../utils/constructor/roofFacets.js';
+import { computeFacets, getPolygonRef, migrateRidgeToEdges } from '../../utils/constructor/roofFacets.js';
 import { migrateObstacles } from '../../utils/constructor/obstacles.js';
 
 /** Геометрия крыши не подставляется при входе — только после обводки на карте */
@@ -129,8 +129,15 @@ export const INITIAL_CONSTRUCTOR_STATE = {
   panelSpacingM: 0.02,
   /** Отступ от края контура крыши, м */
   panelEdgeMarginM: 1,
+  /** Зазор вокруг препятствий при расстановке панелей и добавлении фигур, м */
+  obstacleClearanceM: 0.5,
   /** Скат для расстановки панелей (null = все активные) */
   selectedFacetId: null,
+
+  /** Чертёж: выбранные вершина / сторона / карниз односкатной крыши */
+  selectedRoofVertexIndex: null,
+  selectedRoofEdgeIndex: null,
+  slopeEaveEdgeIndex: null,
 
 };
 
@@ -192,14 +199,18 @@ export function useConstructorDerived(state) {
         selectedFacetId: state.selectedFacetId,
         azimuthDeg: state.azimuthDeg,
         existingPanels: state.panels,
+        obstacles: state.obstacles,
+        obstacleClearanceM: state.obstacleClearanceM,
       });
     }
 
 
 
-    const refLat = state.lat;
-
-    const refLng = state.lng;
+    const roofRef = state.roofPolygon.length >= 3
+      ? getPolygonRef(state.roofPolygon)
+      : null;
+    const refLat = roofRef?.refLat ?? state.lat;
+    const refLng = roofRef?.refLng ?? state.lng;
 
     const panelCenters = new Map();
 

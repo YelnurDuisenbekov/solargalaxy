@@ -104,6 +104,7 @@ export function buildObstacleMeshes3d(obstacles, {
   pitchDeg,
   roofBaseHeightM,
   polyLocal,
+  selectedObstacleId = null,
 }) {
   const root = new THREE.Group();
   if (!obstacles?.length || refLat == null) return root;
@@ -134,6 +135,17 @@ export function buildObstacleMeshes3d(obstacles, {
     else if (isCircularShape(obs.shape)) addCylinder(item, w, h, colors);
     else addCube(item, w, h, d, colors, obs.rotationDeg || 0);
 
+    item.userData.pickRole = 'obstacle';
+    item.userData.obstacleId = obs.id;
+    if (obs.id === selectedObstacleId) {
+      item.traverse((child) => {
+        if (child.isMesh && child.material) {
+          child.material = child.material.clone();
+          child.material.emissive = new THREE.Color(0xe3a50b);
+          child.material.emissiveIntensity = 0.35;
+        }
+      });
+    }
     root.add(item);
   });
 

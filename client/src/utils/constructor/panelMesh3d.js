@@ -29,7 +29,7 @@ function mat(color, { roughness = 0.45, metalness = 0.15, opacity = 1, transpare
   });
 }
 
-function roofYAt(mapX, mapY, ctx) {
+function roofYAt(mapX, mapY, ctx, facetId = null) {
   return roofSurfaceYAtPoint(
     { x: mapX, y: mapY },
     ctx.facets,
@@ -37,6 +37,7 @@ function roofYAt(mapX, mapY, ctx) {
     ctx.pitchDeg,
     ctx.roofBaseHeightM,
     ctx.polyLocal,
+    facetId,
   );
 }
 
@@ -44,10 +45,10 @@ function roofYAt(mapX, mapY, ctx) {
  * Локальная система ската в точке панели.
  * Нормаль и касательные — по градиенту roofSurfaceYAtPoint (тот же источник, что у меша крыши).
  */
-function buildRoofFrame(mapX, mapY, ctx, eps = 0.25) {
-  const y0 = roofYAt(mapX, mapY, ctx);
-  const yx = roofYAt(mapX + eps, mapY, ctx);
-  const yz = roofYAt(mapX, mapY + eps, ctx);
+function buildRoofFrame(mapX, mapY, ctx, facetId = null, eps = 0.25) {
+  const y0 = roofYAt(mapX, mapY, ctx, facetId);
+  const yx = roofYAt(mapX + eps, mapY, ctx, facetId);
+  const yz = roofYAt(mapX, mapY + eps, ctx, facetId);
   const gradX = (yx - y0) / eps;
   const gradZ = (yz - y0) / eps;
 
@@ -119,7 +120,7 @@ function buildRackQuat(frame, basis, mountMode, tiltDeg) {
  * Сдвигает сборку вдоль нормали так, чтобы все контактные точки
  * нижней плоскости лежали на кровле + clearance (в мм зазора).
  */
-function settleOnRoof(position, roofQuat, normal, ctx, contactLocals, clearanceM) {
+function settleOnRoof(position, roofQuat, normal, ctx, contactLocals, clearanceM, facetId = null) {
   const ny = Math.max(normal.y, 0.12);
   let shift = 0;
 
@@ -127,7 +128,7 @@ function settleOnRoof(position, roofQuat, normal, ctx, contactLocals, clearanceM
     const offset = lp.clone().applyQuaternion(roofQuat);
     const wx = position.x + offset.x;
     const wz = position.z + offset.z;
-    const roofY = roofYAt(wx, wz, ctx);
+    const roofY = roofYAt(wx, wz, ctx, facetId);
     const currentY = position.y + offset.y;
     const need = (roofY + clearanceM - currentY) / ny;
     if (need > shift) shift = need;
@@ -209,8 +210,8 @@ function addRackedPanel(group, widthM, heightM, active, rackQuat) {
   });
 }
 
-export function computeRoofFrameAt(local, ctx) {
-  return buildRoofFrame(local.x, local.y, ctx);
+export function computeRoofFrameAt(local, ctx, facetId = null) {
+  return buildRoofFrame(local.x, local.y, ctx, facetId);
 }
 
 export function buildPanelMeshes3d(panels, {
@@ -248,7 +249,7 @@ export function buildPanelMeshes3d(panels, {
     const halfW = longM / 2;
     const halfD = shortM / 2;
 
-    const frame = buildRoofFrame(mapX, mapY, ctx);
+    const frame = buildRoofFrame(mapX, mapY, ctx, p.facetId);
     const basis = buildPanelBasis(frame, layout);
     const rackQuat = buildRackQuat(frame, basis, mode, mountTiltDeg);
 
@@ -258,7 +259,7 @@ export function buildPanelMeshes3d(panels, {
 
     if (mode === 'surface') {
       const contacts = bottomContacts(halfW, halfD, 0);
-      settleOnRoof(item.position, basis.roofQuat, frame.normal, ctx, contacts, SURFACE_GAP_M);
+      settleOnRoof(item.position, basis.roofQuat, frame.normal, ctx, contacts, SURFACE_GAP_M, p.facetId);
       addSurfacePanel(item, longM, shortM, p.active);
     } else {
       const railZ = halfD * 0.4;
@@ -268,7 +269,7 @@ export function buildPanelMeshes3d(panels, {
           footContacts.push(new THREE.Vector3(x, 0, z).applyQuaternion(rackQuat));
         });
       });
-      settleOnRoof(item.position, basis.roofQuat, frame.normal, ctx, footContacts, 0);
+      settleOnRoof(item.position, basis.roofQuat, frame.normal, ctx, footContacts, 0, p.facetId);
       addRackedPanel(item, longM, shortM, p.active, rackQuat);
     }
 

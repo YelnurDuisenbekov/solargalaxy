@@ -5,7 +5,7 @@ import { findInverter, findModule } from './equipment.js';
 import {
   getPolygonRef,
 } from './roofFacets.js';
-import { obstacleShadowRadius } from './obstacles.js';
+import { obstacleShadowRadius, migrateObstacles, panelCornersOverlapObstacles, OBSTACLE_CLEARANCE_M } from './obstacles.js';
 
 const PEAK_SUN_HOURS = 4.8;
 const PERFORMANCE_RATIO = 0.78;
@@ -99,15 +99,18 @@ function facetUVToLocal(u, v, azimuthDeg) {
   return { x: u * acrossX + v * downX, y: u * acrossY + v * downY };
 }
 
-function panelFitsOnFacet(u, v, facetPoly, roofPoly, margin, halfAcross, halfAlongPlan, azimuthDeg) {
+function panelFitsOnFacet(u, v, facetPoly, roofPoly, margin, halfAcross, halfAlongPlan, azimuthDeg, obstacles, refLat, refLng, obstacleClearanceM) {
   const corners = [
     { u: u - halfAcross, v: v - halfAlongPlan },
     { u: u + halfAcross, v: v - halfAlongPlan },
     { u: u + halfAcross, v: v + halfAlongPlan },
     { u: u - halfAcross, v: v + halfAlongPlan },
   ];
-  return corners.every((c) => {
-    const xy = facetUVToLocal(c.u, c.v, azimuthDeg);
+  const localCorners = corners.map((c) => facetUVToLocal(c.u, c.v, azimuthDeg));
+  if (obstacles?.length && panelCornersOverlapObstacles(localCorners, obstacles, refLat, refLng, obstacleClearanceM)) {
+    return false;
+  }
+  return localCorners.every((xy) => {
     if (!pointInPolygon(xy.x, xy.y, facetPoly)) return false;
     if (distanceToPolygonBoundary(xy.x, xy.y, roofPoly) < margin - 1e-6) return false;
     return true;
@@ -124,6 +127,10 @@ function generatePanelsOnFacet({
   panelEdgeMarginM,
   existingPanels,
   idStart,
+  obstacles,
+  refLat,
+  refLng,
+  obstacleClearanceM,
 }) {
   const poly = facet.polygon;
   if (!poly || poly.length < 3) return [];
@@ -167,7 +174,10 @@ function generatePanelsOnFacet({
   for (let v = vStart; v <= vEnd + 1e-9; v += effAlongPlan, row += 1) {
     let col = 0;
     for (let u = uStart; u <= uEnd + 1e-9; u += effAcross, col += 1) {
-      if (!panelFitsOnFacet(u, v, poly, roofPolyLocal, margin, halfAcross, halfAlongPlan, azimuthDeg)) continue;
+      if (!panelFitsOnFacet(
+        u, v, poly, roofPolyLocal, margin, halfAcross, halfAlongPlan, azimuthDeg,
+        obstacles, refLat, refLng, obstacleClearanceM,
+      )) continue;
 
       const xy = facetUVToLocal(u, v, azimuthDeg);
       const existing = existingPanels?.find(
@@ -205,11 +215,14 @@ export function generatePanelGrid({
   selectedFacetId,
   azimuthDeg,
   existingPanels,
+  obstacles,
+  obstacleClearanceM = OBSTACLE_CLEARANCE_M,
 }) {
   if (!roofPolygon || roofPolygon.length < 3) return [];
 
   const { refLat, refLng } = getPolygonRef(roofPolygon);
   const roofPolyLocal = roofPolygon.map((p) => latLngToLocalMeters(p.lat, p.lng, refLat, refLng));
+  const obstaclesForGrid = migrateObstacles(obstacles);
 
   const allFacets = facets?.length
     ? facets
@@ -257,6 +270,10 @@ export function generatePanelGrid({
       panelEdgeMarginM,
       existingPanels: facetExisting,
       idStart: nextId,
+      obstacles: obstaclesForGrid,
+      refLat,
+      refLng,
+      obstacleClearanceM,
     });
     batch.forEach((p) => {
       const m = String(p.id).match(/^p-(\d+)$/);

@@ -282,13 +282,20 @@ export function clipPolygonByHalfPlane(polygon, edgeLocal, keepSide) {
   const { from, to } = edgeLocal;
   const output = [];
 
+  const isInside = (side) => {
+    if (side === keepSide) return true;
+    // Точки на ребре — только в скате A, иначе оба ската перекрываются и высота «прыгает»
+    if (side === null && keepSide === 'a') return true;
+    return false;
+  };
+
   for (let i = 0; i < polygon.length; i += 1) {
     const curr = polygon[i];
     const prev = polygon[(i + polygon.length - 1) % polygon.length];
     const currSide = pointSideOfEdge(curr, edgeLocal);
     const prevSide = pointSideOfEdge(prev, edgeLocal);
-    const currInside = currSide === keepSide || currSide === null;
-    const prevInside = prevSide === keepSide || prevSide === null;
+    const currInside = isInside(currSide);
+    const prevInside = isInside(prevSide);
 
     if (currInside) {
       if (!prevInside) {

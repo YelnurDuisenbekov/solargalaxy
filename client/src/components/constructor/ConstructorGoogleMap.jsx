@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { loadGoogleMaps } from '../../utils/googleMapsLoader.js';
+import { attachGoogleMapProjection } from '../../utils/constructor/mapProjection.js';
+import ConstructorRoofGeometryHud from './ConstructorRoofGeometryHud.jsx';
 import ConstructorMap from './ConstructorMap.jsx';
 import {
   OBSTACLE_COLORS,
@@ -11,14 +13,25 @@ import {
   resizeObstacleCorner,
   resizeObstacleEdge,
 } from '../../utils/constructor/obstacles.js';
+import {
+  canDragObstacleOnMap,
+  obstacleAtDragDelta,
+  startObstacleDrag,
+} from '../../utils/constructor/obstacleMapDrag.js';
 import { edgeLinePathLatLng } from '../../utils/constructor/roofFacets.js';
+import {
+  facetMapStyle,
+  facetRingLatLng,
+  facetsForMapDraw,
+} from '../../utils/constructor/facetMapDraw.js';
 
 const MODE_HINT = {
   roof: 'Кликайте по углам крыши на спутнике (минимум 3 точки)',
+  refine: 'Чертёж: тяните углы · L — длина стороны · ∠ — угол · введите точные значения',
   edge: 'Рёбра: перпендикулярный — клик по краю; свободный — 2 точки до периметра',
-  azimuth: 'Азимут: 2 клика — хвост и направление стрелки (можно кликать снова для правки)',
-  obstacle: 'Клик — новое препятствие · клик по фигуре — выбор · тяните маркеры',
-  view: 'Просмотр — перемещайте карту · клик по препятствию — выбор',
+  azimuth: 'Односкатная: клик по карнизу (стороне ската) · иначе — стрелка направления',
+  obstacle: 'Клик — новое препятствие · тяните фигуру или маркеры · Enter — применить',
+  view: 'Тяните препятствие по карте · клик — выбор',
 };
 
 function handleIcon(maps, scale, fill, stroke = '#103B5E', strokeWeight = 2) {
@@ -46,16 +59,31 @@ export default function ConstructorGoogleMap({
   drawMode,
   mapType = 'hybrid',
   flyToKey,
+  selectedRoofVertexIndex,
+  selectedRoofEdgeIndex,
+  slopeEaveEdgeIndex,
+  pitchDeg = 25,
+  azimuthDeg = 180,
+  facetAzimuthOverrides,
+  selectedFacetId,
   onMapClick,
   onObstacleAdd,
   onObstacleSelect,
   onObstacleUpdate,
+  onObstacleGestureStart,
+  onRoofVertexDrag,
+  onRoofVertexSelect,
+  onRoofEdgeSelect,
+  onRoofEdgeLengthChange,
+  onRoofVertexAngleChange,
 }) {
   const mapRef = useRef(null);
+  const mapWrapRef = useRef(null);
   const mapInstance = useRef(null);
   const overlaysRef = useRef({
     markers: [],
     polygon: null,
+    facets: [],
     edges: [],
     draft: null,
     azimuth: null,
@@ -65,14 +93,23 @@ export default function ConstructorGoogleMap({
   });
   const drawModeRef = useRef(drawMode);
   const obstaclesRef = useRef(obstacles);
-  const callbacksRef = useRef({ onObstacleAdd, onObstacleSelect, onObstacleUpdate, onMapClick });
+  const obstacleDragRef = useRef(null);
+  const obstacleDragMovedRef = useRef(false);
+  const callbacksRef = useRef({
+    onObstacleAdd, onObstacleSelect, onObstacleUpdate, onObstacleGestureStart, onMapClick,
+    onRoofVertexDrag, onRoofVertexSelect, onRoofEdgeSelect,
+  });
   const [fallback, setFallback] = useState(false);
+  const [mapProjection, setMapProjection] = useState(null);
 
   useEffect(() => { drawModeRef.current = drawMode; }, [drawMode]);
   useEffect(() => { obstaclesRef.current = obstacles; }, [obstacles]);
   useEffect(() => {
-    callbacksRef.current = { onObstacleAdd, onObstacleSelect, onObstacleUpdate, onMapClick };
-  }, [onObstacleAdd, onObstacleSelect, onObstacleUpdate, onMapClick]);
+    callbacksRef.current = {
+      onObstacleAdd, onObstacleSelect, onObstacleUpdate, onObstacleGestureStart, onMapClick,
+      onRoofVertexDrag, onRoofVertexSelect, onRoofEdgeSelect,
+    };
+  }, [onObstacleAdd, onObstacleSelect, onObstacleUpdate, onObstacleGestureStart, onMapClick, onRoofVertexDrag, onRoofVertexSelect, onRoofEdgeSelect]);
 
   useEffect(() => {
     let cancelled = false;
@@ -99,9 +136,16 @@ export default function ConstructorGoogleMap({
         });
 
         map.addListener('click', (e) => {
+          if (obstacleDragMovedRef.current) return;
+
           const pos = { lat: e.latLng.lat(), lng: e.latLng.lng() };
           const mode = drawModeRef.current;
           const cb = callbacksRef.current;
+
+          if (mode === 'refine') {
+            cb.onMapClick?.(pos);
+            return;
+          }
 
           if (mode === 'roof' || mode === 'edge' || mode === 'azimuth') {
             cb.onMapClick?.(pos);
@@ -118,13 +162,45 @@ export default function ConstructorGoogleMap({
           }
         });
 
+        const finishObstacleDrag = () => {
+          if (!obstacleDragRef.current) return;
+          map.setOptions({ draggable: true });
+          obstacleDragRef.current = null;
+          window.setTimeout(() => { obstacleDragMovedRef.current = false; }, 0);
+        };
+
+        const onObstacleDragMove = (e) => {
+          const drag = obstacleDragRef.current;
+          if (!drag) return;
+          obstacleDragMovedRef.current = true;
+          const current = obstaclesRef.current?.find((o) => o.id === drag.id) || drag.baseObs;
+          drag.baseObs = current;
+          const moved = obstacleAtDragDelta(drag, e.latLng.lat(), e.latLng.lng());
+          callbacksRef.current.onObstacleUpdate?.(moved, { transient: true });
+        };
+
+        map.addListener('mousemove', onObstacleDragMove);
+        map.addListener('mouseup', finishObstacleDrag);
+
         mapInstance.current = map;
+        attachGoogleMapProjection(map, setMapProjection);
+
+        const ro = new ResizeObserver(() => {
+          window.requestAnimationFrame(() => {
+            window.google?.maps?.event?.trigger(map, 'resize');
+          });
+        });
+        if (mapRef.current) ro.observe(mapRef.current);
+        map._sgResizeObserver = ro;
       })
       .catch(() => {
         if (!cancelled) setFallback(true);
       });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      mapInstance.current?._sgResizeObserver?.disconnect();
+    };
   }, []);
 
   useEffect(() => {
@@ -149,6 +225,8 @@ export default function ConstructorGoogleMap({
     overlaysRef.current.markers = [];
     overlaysRef.current.pin?.setMap(null);
     overlaysRef.current.polygon?.setMap(null);
+    overlaysRef.current.facets.forEach((f) => f.setMap(null));
+    overlaysRef.current.facets = [];
     overlaysRef.current.edges.forEach((e) => e.setMap(null));
     overlaysRef.current.edges = [];
     overlaysRef.current.draft?.setMap(null);
@@ -159,8 +237,10 @@ export default function ConstructorGoogleMap({
     overlaysRef.current.obstacleHandles.forEach((h) => h.setMap(null));
     overlaysRef.current.obstacleHandles = [];
 
+    const isRefine = drawMode === 'refine';
+
     overlaysRef.current.pin = new maps.Marker({
-      map,
+      map: isRefine ? null : map,
       position: { lat, lng },
       title: 'Центр объекта',
       clickable: false,
@@ -180,28 +260,69 @@ export default function ConstructorGoogleMap({
     });
 
     roofPolygon?.forEach((p, i) => {
+      const selected = selectedRoofVertexIndex === i;
       const marker = new maps.Marker({
         map,
         position: { lat: p.lat, lng: p.lng },
-        clickable: false,
+        draggable: isRefine,
+        clickable: isRefine,
         label: { text: String(i + 1), color: '#103B5E', fontWeight: '700', fontSize: '11px' },
-        icon: handleIcon(maps, 10, '#ffffff', '#E3A50B'),
+        icon: handleIcon(maps, isRefine ? 12 : 10, selected ? '#E3A50B' : '#ffffff', selected ? '#103B5E' : '#E3A50B', selected ? 3 : 2),
         title: `Угол ${i + 1}`,
+        zIndex: isRefine ? 40 : 20,
       });
+      if (isRefine) {
+        marker.addListener('click', () => callbacksRef.current.onRoofVertexSelect?.(i));
+        marker.addListener('dragend', (e) => {
+          callbacksRef.current.onRoofVertexDrag?.(i, e.latLng.lat(), e.latLng.lng());
+        });
+      }
       overlaysRef.current.markers.push(marker);
     });
 
     if (roofPolygon?.length >= 3) {
+      const mapFacets = facetsForMapDraw(
+        roofPolygon,
+        roofEdges,
+        pitchDeg,
+        azimuthDeg,
+        facetAzimuthOverrides,
+      );
+      const hasFacetFill = mapFacets.length > 0;
+
+      mapFacets.forEach((facet, idx) => {
+        const style = facetMapStyle(facet, idx, selectedFacetId);
+        const polygon = new maps.Polygon({
+          map,
+          paths: facetRingLatLng(facet),
+          strokeColor: style.stroke,
+          strokeOpacity: 0.95,
+          strokeWeight: style.strokeWeight,
+          fillColor: style.fill,
+          fillOpacity: style.fillOpacity,
+          clickable: false,
+          zIndex: style.zIndex,
+        });
+        overlaysRef.current.facets.push(polygon);
+      });
+
+      const path = roofPolygon.map((p) => ({ lat: p.lat, lng: p.lng }));
       overlaysRef.current.polygon = new maps.Polygon({
         map,
-        paths: roofPolygon.map((p) => ({ lat: p.lat, lng: p.lng })),
+        paths: path,
         strokeColor: '#1B8A45',
         strokeOpacity: 0.95,
-        strokeWeight: 2,
+        strokeWeight: isRefine ? 2.5 : 2,
         fillColor: '#1B8A45',
-        fillOpacity: 0.28,
-        clickable: false,
+        fillOpacity: hasFacetFill ? 0 : (isRefine ? 0.12 : 0.28),
+        clickable: isRefine,
+        zIndex: 1,
       });
+      if (isRefine) {
+        overlaysRef.current.polygon.addListener('click', (e) => {
+          callbacksRef.current.onMapClick?.({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+        });
+      }
     } else if (roofPolygon?.length >= 2) {
       overlaysRef.current.polygon = new maps.Polyline({
         map,
@@ -212,6 +333,30 @@ export default function ConstructorGoogleMap({
         strokeWeight: 2,
         clickable: false,
       });
+    }
+
+    if (roofPolygon?.length >= 3) {
+      for (let i = 0; i < roofPolygon.length; i += 1) {
+        const a = roofPolygon[i];
+        const b = roofPolygon[(i + 1) % roofPolygon.length];
+        const isEave = slopeEaveEdgeIndex === i;
+        const isSel = selectedRoofEdgeIndex === i;
+        const line = new maps.Polyline({
+          map,
+          path: edgeLinePathLatLng(a, b, roofPolygon),
+          geodesic: false,
+          strokeColor: isEave ? '#E3A50B' : (isSel ? '#0ea5e9' : '#1B8A45'),
+          strokeOpacity: isEave || isSel ? 1 : 0.55,
+          strokeWeight: isEave ? 5 : (isSel ? 4 : 2),
+          clickable: isRefine || drawMode === 'azimuth',
+          zIndex: isEave ? 12 : 5,
+        });
+        if (isRefine || drawMode === 'azimuth') {
+          const edgeIdx = i;
+          line.addListener('click', () => callbacksRef.current.onRoofEdgeSelect?.(edgeIdx));
+        }
+        overlaysRef.current.edges.push(line);
+      }
     }
 
     roofEdges?.forEach((edge, idx) => {
@@ -299,6 +444,21 @@ export default function ConstructorGoogleMap({
         zIndex: selected ? 6 : 3,
       });
       polygon.addListener('click', () => callbacksRef.current.onObstacleSelect?.(obs.id));
+
+      if (canDragObstacleOnMap(drawMode)) {
+        polygon.addListener('mousedown', (e) => {
+          if (e.domEvent) {
+            e.domEvent.preventDefault();
+            e.domEvent.stopPropagation();
+          }
+          map.setOptions({ draggable: false });
+          obstacleDragMovedRef.current = false;
+          obstacleDragRef.current = startObstacleDrag(obs, e.latLng.lat(), e.latLng.lng());
+          callbacksRef.current.onObstacleGestureStart?.();
+          callbacksRef.current.onObstacleSelect?.(obs.id);
+        });
+      }
+
       overlaysRef.current.obstacles.push(polygon);
 
       const shapeLabel = { tree: 'Д', cone: 'К', cylinder: 'Ц', cube: 'Кб' }[obs.shape] || '?';
@@ -363,7 +523,7 @@ export default function ConstructorGoogleMap({
         overlaysRef.current.obstacleHandles.push(m);
       });
     });
-  }, [roofPolygon, roofRectDraft, roofEdges, edgeDraft, azimuthArrow, azimuthDraft, obstacles, selectedObstacleId, lat, lng]);
+  }, [roofPolygon, roofRectDraft, roofEdges, edgeDraft, azimuthArrow, azimuthDraft, obstacles, selectedObstacleId, lat, lng, drawMode, selectedRoofVertexIndex, selectedRoofEdgeIndex, slopeEaveEdgeIndex, pitchDeg, azimuthDeg, facetAzimuthOverrides, selectedFacetId]);
 
   if (fallback) {
     return (
@@ -379,10 +539,23 @@ export default function ConstructorGoogleMap({
         drawMode={drawMode}
         mapStyle={mapType}
         flyToKey={flyToKey}
+        selectedRoofVertexIndex={selectedRoofVertexIndex}
+        selectedRoofEdgeIndex={selectedRoofEdgeIndex}
+        slopeEaveEdgeIndex={slopeEaveEdgeIndex}
+        pitchDeg={pitchDeg}
+        azimuthDeg={azimuthDeg}
+        facetAzimuthOverrides={facetAzimuthOverrides}
+        selectedFacetId={selectedFacetId}
         onMapClick={onMapClick}
         onObstacleAdd={onObstacleAdd}
         onObstacleSelect={onObstacleSelect}
         onObstacleUpdate={onObstacleUpdate}
+        onObstacleGestureStart={onObstacleGestureStart}
+        onRoofVertexDrag={onRoofVertexDrag}
+        onRoofVertexSelect={onRoofVertexSelect}
+        onRoofEdgeSelect={onRoofEdgeSelect}
+        onRoofEdgeLengthChange={onRoofEdgeLengthChange}
+        onRoofVertexAngleChange={onRoofVertexAngleChange}
       />
     );
   }
@@ -392,8 +565,20 @@ export default function ConstructorGoogleMap({
     : '';
 
   return (
-    <div className={`constructor-map-wrap constructor-map-wrap--${drawMode}`}>
+    <div ref={mapWrapRef} className={`constructor-map-wrap constructor-map-wrap--${drawMode}`}>
       <div ref={mapRef} className="constructor-map constructor-map--google" />
+      <ConstructorRoofGeometryHud
+        roofPolygon={roofPolygon}
+        drawMode={drawMode}
+        selectedRoofVertexIndex={selectedRoofVertexIndex}
+        selectedRoofEdgeIndex={selectedRoofEdgeIndex}
+        slopeEaveEdgeIndex={slopeEaveEdgeIndex}
+        projectLatLng={mapProjection}
+        onEdgeLengthChange={onRoofEdgeLengthChange}
+        onVertexAngleChange={onRoofVertexAngleChange}
+        onVertexSelect={onRoofVertexSelect}
+        onEdgeSelect={onRoofEdgeSelect}
+      />
       <p className="constructor-map-hint">
         <strong>Google Maps · {MODE_HINT[drawMode]}{edgeHint}</strong>
         {' · '}

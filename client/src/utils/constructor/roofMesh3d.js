@@ -1,6 +1,6 @@
 /** Построение 3D-поверхности крыши по контуру и рёбрам */
 
-import { computeFacets, edgeToLocal, getPolygonRef, pointSideOfEdge, toLocalPolygon } from './roofFacets.js';
+import { computeFacets, edgeToLocal, facetIdForPoint, getPolygonRef, pointSideOfEdge, toLocalPolygon } from './roofFacets.js';
 
 function pointToSegmentDistance(p, a, b) {
   const dx = b.x - a.x;
@@ -25,7 +25,33 @@ function singleSlopeHeight(point, polyLocal, pitchDeg, azimuthDeg) {
   return Math.max(0, (maxProj - proj) * Math.tan(pitchRad));
 }
 
-export function facetHeightAt(point, facet, roofEdges, pitchDeg) {
+function getRidgeBasis(el, side) {
+  const dx = el.to.x - el.from.x;
+  const dy = el.to.y - el.from.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const alongX = dx / len;
+  const alongY = dy / len;
+  const downX = side === 'a' ? -dy / len : dy / len;
+  const downY = side === 'a' ? dx / len : -dx / len;
+  return { alongX, alongY, downX, downY, len };
+}
+
+/** Макс. «прогон» от конька до карниза по направлению ската */
+function maxDownhillRun(polygon, el, side) {
+  const { downX, downY } = getRidgeBasis(el, side);
+  let maxRun = 0;
+  polygon.forEach((p) => {
+    const ps = pointSideOfEdge(p, el);
+    if (ps !== null && ps !== side) return;
+    const relX = p.x - el.from.x;
+    const relY = p.y - el.from.y;
+    const w = relX * downX + relY * downY;
+    if (w > maxRun) maxRun = w;
+  });
+  return maxRun;
+}
+
+export function facetHeightAt(point, facet, roofEdges, pitchDeg, polyLocal = null) {
   const pitchRad = (pitchDeg * Math.PI) / 180;
   const { refLat, refLng, polygon, sides } = facet;
 
@@ -33,7 +59,9 @@ export function facetHeightAt(point, facet, roofEdges, pitchDeg) {
     return singleSlopeHeight(point, polygon, pitchDeg, facet.azimuthDeg);
   }
 
+  const runPoly = polyLocal?.length >= 3 ? polyLocal : polygon;
   let height = 0;
+
   Object.entries(sides).forEach(([edgeId, side]) => {
     const edge = roofEdges.find((e) => e.id === edgeId);
     if (!edge) return;
@@ -41,16 +69,14 @@ export function facetHeightAt(point, facet, roofEdges, pitchDeg) {
     const ps = pointSideOfEdge(point, el);
     if (ps !== null && ps !== side) return;
 
-    let maxRun = 0;
-    polygon.forEach((v) => {
-      const vs = pointSideOfEdge(v, el);
-      if (vs === side || vs === null) {
-        maxRun = Math.max(maxRun, pointToSegmentDistance(v, el.from, el.to));
-      }
-    });
+    const { downX, downY } = getRidgeBasis(el, side);
+    const relX = point.x - el.from.x;
+    const relY = point.y - el.from.y;
+    const w = Math.max(0, relX * downX + relY * downY);
+
+    const maxRun = maxDownhillRun(runPoly, el, side);
     if (maxRun < 0.01) return;
-    const distToRidge = pointToSegmentDistance(point, el.from, el.to);
-    height = Math.max(height, (maxRun - distToRidge) * Math.tan(pitchRad));
+    height = Math.max(height, (maxRun - w) * Math.tan(pitchRad));
   });
 
   return Math.max(0, height);
@@ -69,8 +95,8 @@ function pushTri3(positions, normals, a, b, c) {
   });
 }
 
-function facetTopY(point, facet, roofEdges, pitchDeg, baseH) {
-  return facetHeightAt(point, facet, roofEdges, pitchDeg) + baseH;
+function facetTopY(point, facet, roofEdges, pitchDeg, baseH, polyLocal) {
+  return facetHeightAt(point, facet, roofEdges, pitchDeg, polyLocal) + baseH;
 }
 
 function edgeOnOuterBoundary(p1, p2, polyLocal, eps = 0.2) {
@@ -105,8 +131,8 @@ function appendFacetUnderside(positions, normals, facet, roofEdges, pitchDeg, ba
     const p2 = polygon[(i + 1) % polygon.length];
     if (!edgeOnOuterBoundary(p1, p2, polyLocal)) continue;
 
-    const topA = { x: p1.x, y: facetTopY(p1, facet, roofEdges, pitchDeg, baseH), z: p1.y };
-    const topB = { x: p2.x, y: facetTopY(p2, facet, roofEdges, pitchDeg, baseH), z: p2.y };
+    const topA = { x: p1.x, y: facetTopY(p1, facet, roofEdges, pitchDeg, baseH, polyLocal), z: p1.y };
+    const topB = { x: p2.x, y: facetTopY(p2, facet, roofEdges, pitchDeg, baseH, polyLocal), z: p2.y };
     const botA = { x: p1.x, y: baseH, z: p1.y };
     const botB = { x: p2.x, y: baseH, z: p2.y };
     pushTri3(positions, normals, topA, botA, botB);
@@ -115,16 +141,14 @@ function appendFacetUnderside(positions, normals, facet, roofEdges, pitchDeg, ba
 }
 
 /** Закрыть пространство под коньком/ребром */
-function appendRidgeUndersides(positions, normals, roofEdges, facets, refLat, refLng, pitchDeg, baseH) {
+function appendRidgeUndersides(positions, normals, roofEdges, facets, refLat, refLng, pitchDeg, baseH, polyLocal) {
   (roofEdges || []).forEach((edge) => {
     const el = edgeToLocal(edge, refLat, refLng);
+    const pitchRad = (pitchDeg * Math.PI) / 180;
     const ridgeY = (pt) => {
-      let h = 0;
-      facets.forEach((f) => {
-        if (!pointInLocalPolygon(pt.x, pt.y, f.polygon)) return;
-        h = Math.max(h, facetHeightAt(pt, f, roofEdges, pitchDeg));
-      });
-      return h + baseH;
+      const runA = maxDownhillRun(polyLocal, el, 'a');
+      const runB = maxDownhillRun(polyLocal, el, 'b');
+      return Math.max(runA, runB) * Math.tan(pitchRad) + baseH;
     };
 
     const topA = { x: el.from.x, y: ridgeY(el.from), z: el.from.y };
@@ -151,36 +175,34 @@ function pointInLocalPolygon(x, y, polygon) {
 }
 
 /** Высота поверхности крыши в точке (локальные метры, y вверх) */
-export function roofSurfaceYAtPoint(local, facets, roofEdges, pitchDeg, roofBaseHeightM, polyLocal) {
+export function roofSurfaceYAtPoint(local, facets, roofEdges, pitchDeg, roofBaseHeightM, polyLocal, preferFacetId = null) {
   const baseH = Number(roofBaseHeightM) || 0;
-  let slopeH = null;
-
-  facets?.forEach((facet) => {
-    if (!pointInLocalPolygon(local.x, local.y, facet.polygon)) return;
-    const h = facetHeightAt(local, facet, roofEdges, pitchDeg);
-    if (slopeH === null || h < slopeH) slopeH = h;
-  });
-
-  if (slopeH === null && polyLocal && pointInLocalPolygon(local.x, local.y, polyLocal)) {
-    slopeH = 0;
+  if (!facets?.length) {
+    if (polyLocal && pointInLocalPolygon(local.x, local.y, polyLocal)) return baseH;
+    return 0;
   }
 
-  if (slopeH === null) return 0;
-  return baseH + slopeH;
+  let facet = preferFacetId ? facets.find((f) => f.id === preferFacetId) : null;
+
+  if (!facet && roofEdges?.length) {
+    const { refLat, refLng } = facets[0];
+    const fid = facetIdForPoint(local, roofEdges, refLat, refLng);
+    if (fid) facet = facets.find((f) => f.id === fid) || null;
+  }
+
+  if (!facet) {
+    facet = facets.find((f) => pointInLocalPolygon(local.x, local.y, f.polygon)) || null;
+  }
+
+  if (!facet) {
+    if (polyLocal && pointInLocalPolygon(local.x, local.y, polyLocal)) return baseH;
+    return 0;
+  }
+
+  return baseH + facetHeightAt(local, facet, roofEdges, pitchDeg, polyLocal);
 }
 
-function getRidgeBasis(el, side) {
-  const dx = el.to.x - el.from.x;
-  const dy = el.to.y - el.from.y;
-  const len = Math.hypot(dx, dy) || 1;
-  const alongX = dx / len;
-  const alongY = dy / len;
-  const downX = side === 'a' ? -dy / len : dy / len;
-  const downY = side === 'a' ? dx / len : -dx / len;
-  return { alongX, alongY, downX, downY, len };
-}
-
-function buildFacetHeightMesh(facet, roofEdges, pitchDeg, baseHeightM = 0) {
+function buildFacetHeightMesh(facet, roofEdges, pitchDeg, baseHeightM = 0, polyLocal = null) {
   const poly = facet.polygon;
   if (!poly || poly.length < 3) return { positions: [], normals: [], maxY: 0 };
 
@@ -189,7 +211,7 @@ function buildFacetHeightMesh(facet, roofEdges, pitchDeg, baseHeightM = 0) {
 
   const to3 = (p) => ({
     x: p.x,
-    y: facetHeightAt(p, facet, roofEdges, pitchDeg) + baseHeightM,
+    y: facetHeightAt(p, facet, roofEdges, pitchDeg, polyLocal) + baseHeightM,
     z: p.y,
   });
 
@@ -204,7 +226,7 @@ function buildFacetHeightMesh(facet, roofEdges, pitchDeg, baseHeightM = 0) {
     pushTri(poly[0], poly[i], poly[i + 1]);
   }
 
-  const maxY = Math.max(...poly.map((p) => facetHeightAt(p, facet, roofEdges, pitchDeg))) + baseHeightM;
+  const maxY = Math.max(...poly.map((p) => facetHeightAt(p, facet, roofEdges, pitchDeg, polyLocal))) + baseHeightM;
   return { positions, normals, maxY };
 }
 
@@ -346,7 +368,7 @@ export function buildRoofSurfaceData(roofPolygon, roofEdges, pitchDeg, azimuthDe
   let globalMaxY = 0;
 
   facets.forEach((facet, idx) => {
-    const mesh = buildFacetHeightMesh(facet, roofEdges, pitch, baseH);
+    const mesh = buildFacetHeightMesh(facet, roofEdges, pitch, baseH, polyLocal);
 
     globalMaxY = Math.max(globalMaxY, mesh.maxY);
     if (mesh.positions.length < 9) return;
@@ -368,23 +390,22 @@ export function buildRoofSurfaceData(roofPolygon, roofEdges, pitchDeg, azimuthDe
     normals.push(...mesh.normals);
   });
 
-  appendRidgeUndersides(solidVertices, solidNormals, roofEdges, facets, refLat, refLng, pitch, baseH);
+  appendRidgeUndersides(solidVertices, solidNormals, roofEdges, facets, refLat, refLng, pitch, baseH, polyLocal);
 
   const cx = polyLocal.reduce((s, p) => s + p.x, 0) / polyLocal.length;
   const cz = polyLocal.reduce((s, p) => s + p.y, 0) / polyLocal.length;
 
   const ridgeLines = (roofEdges || []).map((edge) => {
     const el = edgeToLocal(edge, refLat, refLng);
-    const ridgeH = (pt) => {
-      let h = 0;
-      facets.forEach((f) => {
-        h = Math.max(h, facetHeightAt(pt, f, roofEdges, pitch));
-      });
-      return h + baseH;
+    const pitchRad = (pitch * Math.PI) / 180;
+    const ridgeH = () => {
+      const runA = maxDownhillRun(polyLocal, el, 'a');
+      const runB = maxDownhillRun(polyLocal, el, 'b');
+      return Math.max(runA, runB) * Math.tan(pitchRad) + baseH;
     };
     return {
-      from: { x: el.from.x, y: ridgeH(el.from), z: el.from.y },
-      to: { x: el.to.x, y: ridgeH(el.to), z: el.to.y },
+      from: { x: el.from.x, y: ridgeH(), z: el.from.y },
+      to: { x: el.to.x, y: ridgeH(), z: el.to.y },
     };
   });
 
