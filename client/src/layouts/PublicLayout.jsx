@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { warmupApi } from '../api';
+import { usePageTracking } from '../hooks/usePageTracking';
 import FloatingQuoteButton from '../components/FloatingQuoteButton';
 import './PublicLayout.css';
 
@@ -17,6 +18,7 @@ export default function PublicLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => { warmupApi(); }, []);
+  usePageTracking();
 
   const closeMenu = () => setMenuOpen(false);
 

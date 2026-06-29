@@ -654,3 +654,28 @@ model OneCSyncLog {
   message   String?
   createdAt DateTime @default(now())
 }
+
+model PageView {
+  id        String   @id @default(cuid())
+  path      String
+  referrer  String?
+  sessionId String?
+  createdAt DateTime @default(now())
+
+  @@index([path, createdAt])
+  @@index([sessionId, createdAt])
+  @@index([createdAt])
+}
+
+model FormEvent {
+  id        String   @id @default(cuid())
+  formId    String
+  event     String
+  path      String?
+  sessionId String?
+  createdAt DateTime @default(now())
+
+  @@index([formId, event, createdAt])
+  @@index([sessionId, createdAt])
+  @@index([createdAt])
+}

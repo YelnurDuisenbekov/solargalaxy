@@ -49,6 +49,33 @@ node scripts/render-provision.mjs
 
 ## 3. Локальная разработка
 
+### Только фронт + Render API (платный Starter, рекомендуется)
+
+```bash
+# client/.env:
+# VITE_API_URL=https://solargalaxy-api.onrender.com
+# VITE_RENDER_PAID=true
+npm run dev:render
+```
+
+Сайт: http://localhost:5173 — все запросы идут на **https://solargalaxy-api.onrender.com**
+
+Проверка API: https://solargalaxy-api.onrender.com/api/health
+
+### Полный стек локально (фронт + API + БД Render)
+
+```bash
+# Render → Account Settings → API Keys
+set RENDER_API_KEY=rnd_ваш_ключ
+npm run render:connect
+cd server && npx prisma db push && cd ..
+npm run dev
+```
+
+Скрипт `render:connect` пропишет external `DATABASE_URL` из `solargalaxy-db` и `VITE_API_URL` для API.
+
+### Локальный Postgres (Docker)
+
 ```bash
 docker compose up -d
 cd server

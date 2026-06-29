@@ -29,6 +29,7 @@ export const APP_NAV_GROUPS = [
     links: [
       { to: '/app/users', label: 'Пользователи' },
       { to: '/app/whatsapp', label: 'WhatsApp API' },
+      { to: '/app/analytics', label: 'Аналитика' },
       { to: '/app/constructor', label: 'Конструктор' },
       { to: '/app/profile', label: 'Профиль' },
     ],
@@ -91,6 +92,7 @@ export function getNavGroupsForUser({ user, hasPerm, isAdmin }) {
     links: group.links.filter((link) => {
       if (link.to === '/app/users') return hasPerm('users.view');
       if (link.to === '/app/whatsapp') return isAdmin || hasPerm('admin.full');
+      if (link.to === '/app/analytics') return isAdmin || hasPerm('admin.full');
       if (link.to === '/app/constructor') return isAdmin || hasPerm('admin.full');
       if (link.to === '/app/crm' || link.to === '/app/proposals') {
         return hasPerm('crm.view') || hasPerm('crm.view_all');
@@ -121,6 +123,7 @@ export const WAREHOUSE_FORBIDDEN_PATHS = [
   '/app/pricing',
   '/app/users',
   '/app/whatsapp',
+  '/app/analytics',
   '/app/constructor',
 ];
 

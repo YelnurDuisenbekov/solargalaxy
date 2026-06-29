@@ -5,8 +5,9 @@ import { getMutationFlashMessage } from '../lib/mutationFlash';
 const API_ROOT = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 const API = API_ROOT ? `${API_ROOT}/api` : '/api';
 const IS_REMOTE_API = Boolean(API_ROOT);
-const FETCH_TIMEOUT_MS = IS_REMOTE_API ? 120_000 : 30_000;
-const FETCH_RETRIES = IS_REMOTE_API ? 2 : 0;
+const IS_RENDER_PAID = import.meta.env.VITE_RENDER_PAID === 'true' || import.meta.env.VITE_RENDER_PAID === '1';
+const FETCH_TIMEOUT_MS = IS_REMOTE_API ? (IS_RENDER_PAID ? 45_000 : 120_000) : 30_000;
+const FETCH_RETRIES = IS_REMOTE_API ? (IS_RENDER_PAID ? 0 : 2) : 0;
 
 /** Прогрев Render после «сна» — вызывается при загрузке публичного сайта. */
 export function warmupApi() {
@@ -36,6 +37,7 @@ async function fetchWithRetry(path, options) {
 
 function networkErrorMessage() {
   if (!IS_REMOTE_API) return 'Сервер API недоступен. Запустите проект: npm run dev';
+  if (IS_RENDER_PAID) return 'API Render недоступен. Проверьте https://solargalaxy-api.onrender.com/api/health';
   return 'Сервер просыпается (до 1–2 мин на бесплатном тарифе). Подождите и попробуйте снова.';
 }
 
@@ -253,4 +255,8 @@ export const integrationsApi = {
   syncProducts: (body) => api('/integrations/sync/products', { method: 'POST', body: JSON.stringify(body || {}) }),
   syncStock: (body) => api('/integrations/sync/stock', { method: 'POST', body: JSON.stringify(body || {}) }),
   logs: () => api('/integrations/logs'),
+};
+
+export const analyticsApi = {
+  summary: (days = 30) => api(`/analytics/summary?days=${days}`),
 };

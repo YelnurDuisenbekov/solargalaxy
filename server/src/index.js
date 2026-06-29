@@ -13,6 +13,7 @@ import operationsRoutes from './routes/operations.js';
 import publicRoutes from './routes/public.js';
 import whatsappRoutes from './routes/whatsapp.js';
 import proposalsRoutes from './routes/proposals.js';
+import analyticsRoutes from './routes/analytics.js';
 import { syncAllProjectReservations, ensureReservationsSynced } from './lib/stockReservation.js';
 
 const app = express();
@@ -50,6 +51,7 @@ app.use('/api/finance', financeRoutes);
 app.use('/api/portal', portalRoutes);
 app.use('/api/integrations', integrationsRoutes);
 app.use('/api/operations', operationsRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 app.use((err, _req, res, _next) => {
   console.error(err);

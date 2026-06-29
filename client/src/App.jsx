@@ -20,6 +20,7 @@ import ClientPortal from './pages/app/ClientPortal';
 import SupplyPage from './pages/app/SupplyPage';
 import WhatsAppPage from './pages/app/WhatsAppPage';
 import ConstructorPage from './pages/app/ConstructorPage';
+import AnalyticsPage from './pages/app/AnalyticsPage';
 import ContractorPage from './pages/app/ContractorPage';
 import AuctionsRoute from './pages/app/AuctionsRoute';
 import { WarehouseRouteGuard } from './components/WarehouseRouteGuard';
@@ -57,6 +58,7 @@ export default function App() {
         <Route path="users" element={<UsersPage />} />
         <Route path="whatsapp" element={<WhatsAppPage />} />
         <Route path="constructor" element={<ConstructorPage />} />
+        <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="portal" element={<ClientPortal />} />
       </Route>

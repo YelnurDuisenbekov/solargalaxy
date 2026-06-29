@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigate } from 'react-router-dom';
 
@@ -18,6 +18,7 @@ import { calcRecommendedKw, PANEL_EFFICIENCY_PCT } from '../../utils/solarEstima
 import { formatNum, formatTariff, formatMoney } from '../../utils/format';
 import { publicInputClass } from '../../utils/publicFormInput';
 import { CALC_PRESETS, focusClearPreset, focusSelectAll } from '../../utils/formFieldFocus';
+import { trackFormEvent } from '../../utils/analyticsTracking';
 
 import TariffChart, { TARIFF_HISTORY } from '../TariffChart';
 
@@ -65,9 +66,13 @@ export default function PublicLeadForm({
 
   withCalculator = false,
 
+  formId = 'quote-form',
+
 }) {
 
   const { user, isClient } = useAuth();
+
+  const startedRef = useRef(false);
 
   const [form, setForm] = useState({ ...emptyLeadForm });
 
@@ -140,6 +145,26 @@ export default function PublicLeadForm({
 
 
 
+  useEffect(() => {
+
+    trackFormEvent(formId, 'view');
+
+  }, [formId]);
+
+
+
+  const onFormStart = () => {
+
+    if (startedRef.current) return;
+
+    startedRef.current = true;
+
+    trackFormEvent(formId, 'start');
+
+  };
+
+
+
   const submit = async (e) => {
 
     e.preventDefault();
@@ -153,6 +178,8 @@ export default function PublicLeadForm({
     if (!valid) {
 
       setError('Исправьте ошибки в форме');
+
+      trackFormEvent(formId, 'error');
 
       return;
 
@@ -211,6 +238,8 @@ export default function PublicLeadForm({
 
       const created = await publicApi.createLead(payload);
 
+      trackFormEvent(formId, 'submit');
+
       onSubmitted?.({
 
         fullName: form.fullName.trim(),
@@ -233,6 +262,8 @@ export default function PublicLeadForm({
 
       setError(err.message || 'Не удалось отправить заявку');
 
+      trackFormEvent(formId, 'error');
+
       if (err.fields) setFieldErrors(err.fields);
 
     } finally {
@@ -246,7 +277,11 @@ export default function PublicLeadForm({
 
 
   return (
-    <form className={`public-lead-form ${withCalculator ? 'public-lead-form--with-calc' : ''} ${className}`.trim()} onSubmit={submit}>
+    <form
+      className={`public-lead-form ${withCalculator ? 'public-lead-form--with-calc' : ''} ${className}`.trim()}
+      onSubmit={submit}
+      onFocusCapture={onFormStart}
+    >
       {withCalculator ? (
         <div className="public-lead-form__unified card">
           <div className="calculator__chart-section">

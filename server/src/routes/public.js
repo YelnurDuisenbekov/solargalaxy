@@ -148,4 +148,70 @@ router.post('/leads', optionalAuth, async (req, res) => {
 
 
 
+router.post('/track/pageview', async (req, res) => {
+
+  try {
+
+    const path = String(req.body?.path || '/').slice(0, 200);
+
+    const referrer = req.body?.referrer ? String(req.body.referrer).slice(0, 500) : null;
+
+    const sessionId = req.body?.sessionId ? String(req.body.sessionId).slice(0, 64) : null;
+
+    await prisma.pageView.create({
+
+      data: { path, referrer, sessionId },
+
+    });
+
+    res.status(204).end();
+
+  } catch {
+
+    res.status(204).end();
+
+  }
+
+});
+
+
+
+router.post('/track/form-event', async (req, res) => {
+
+  try {
+
+    const formId = String(req.body?.formId || '').slice(0, 64);
+
+    const event = String(req.body?.event || '').slice(0, 32);
+
+    const allowed = ['view', 'start', 'submit', 'error'];
+
+    if (!formId || !allowed.includes(event)) {
+
+      return res.status(400).json({ error: 'Некорректные данные' });
+
+    }
+
+    const path = req.body?.path ? String(req.body.path).slice(0, 200) : null;
+
+    const sessionId = req.body?.sessionId ? String(req.body.sessionId).slice(0, 64) : null;
+
+    await prisma.formEvent.create({
+
+      data: { formId, event, path, sessionId },
+
+    });
+
+    res.status(204).end();
+
+  } catch {
+
+    res.status(204).end();
+
+  }
+
+});
+
+
+
 export default router;

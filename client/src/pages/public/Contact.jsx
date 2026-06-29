@@ -62,6 +62,7 @@ export default function Contact() {
             <div className="contact-form-block">
               <h2 className="contact-form-block__title">Оставить заявку</h2>
               <PublicLeadForm
+                formId="contact-form"
                 submitLabel="Отправить заявку"
                 onSubmitted={(lead) => setRegisterPrompt(lead)}
               />

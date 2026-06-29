@@ -204,6 +204,7 @@ export default function Home() {
           </Reveal>
           <Reveal delay={0.08}>
             <PublicLeadForm
+              formId="home-quote"
               withCalculator
               submitLabel="Получить расчёт"
               onSubmitted={(lead) => setRegisterPrompt(lead)}
