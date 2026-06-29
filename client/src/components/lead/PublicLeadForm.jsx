@@ -11,7 +11,7 @@ import { publicApi } from '../../api';
 
 import LeadFormFields, { emptyLeadForm } from './LeadFormFields';
 
-import { validateLeadForm, resolveCity } from '../../utils/leadValidation';
+import { validateLeadForm, validateCallbackLead, resolveCity } from '../../utils/leadValidation';
 
 import { calcRecommendedKw, PANEL_EFFICIENCY_PCT } from '../../utils/solarEstimate';
 
@@ -74,6 +74,8 @@ export default function PublicLeadForm({
 
   const startedRef = useRef(false);
 
+  const [calcTouched, setCalcTouched] = useState(false);
+
   const [form, setForm] = useState({ ...emptyLeadForm });
 
   const [fieldErrors, setFieldErrors] = useState({});
@@ -96,12 +98,14 @@ export default function PublicLeadForm({
 
 
 
-  const [monthlyBill, setMonthlyBill] = useState(CALC_PRESETS.monthlyBill);
-  const [roofArea, setRoofArea] = useState(CALC_PRESETS.roofArea);
+  const [monthlyBill, setMonthlyBill] = useState(0);
+  const [roofArea, setRoofArea] = useState(0);
 
-  const [currentTariff, setCurrentTariff] = useState(CALC_PRESETS.tariffBusiness);
+  const [currentTariff, setCurrentTariff] = useState(0);
 
   const [segment, setSegment] = useState('business');
+
+  const markCalcTouched = () => setCalcTouched(true);
 
 
 
@@ -129,19 +133,23 @@ export default function PublicLeadForm({
   };
 
   const estimate = useMemo(
-    () => calcRecommendedKw({ monthlyBill, tariffPerKwh: currentTariff, roofArea, segment }),
+    () => (monthlyBill > 0 && currentTariff > 0
+      ? calcRecommendedKw({ monthlyBill, tariffPerKwh: currentTariff, roofArea, segment })
+      : null),
     [monthlyBill, currentTariff, roofArea, segment],
   );
+
+  const showEstimate = calcTouched && estimate && monthlyBill > 0 && currentTariff > 0;
 
 
 
   useEffect(() => {
 
-    if (!withCalculator || capacityTouched || !estimate?.recommendedKw) return;
+    if (!withCalculator || capacityTouched || !calcTouched || !estimate?.recommendedKw) return;
 
     setForm((prev) => ({ ...prev, capacityKw: String(estimate.recommendedKw) }));
 
-  }, [withCalculator, capacityTouched, estimate?.recommendedKw]);
+  }, [withCalculator, capacityTouched, calcTouched, estimate?.recommendedKw]);
 
 
 
@@ -189,7 +197,7 @@ export default function PublicLeadForm({
 
     try {
 
-      const calcNotes = withCalculator && estimate
+      const calcNotes = withCalculator && showEstimate && estimate
 
         ? [
 
@@ -312,7 +320,10 @@ export default function PublicLeadForm({
                     preset: tariffPreset,
                     onClear: () => setCurrentTariff(0),
                   })}
-                  onChange={(e) => setCurrentTariff(Number(e.target.value) || 0)}
+                  onChange={(e) => {
+                    markCalcTouched();
+                    setCurrentTariff(Number(e.target.value) || 0);
+                  }}
                 />
                 {isBelowMarket && (
                   <p className="calculator__tariff-hint calculator__tariff-hint--below">
@@ -335,10 +346,8 @@ export default function PublicLeadForm({
                   className={publicInputClass(segment)}
                   value={segment}
                   onChange={(e) => {
+                    markCalcTouched();
                     setSegment(e.target.value);
-                    setCurrentTariff(e.target.value === 'household'
-                      ? CALC_PRESETS.tariffHousehold
-                      : CALC_PRESETS.tariffBusiness);
                   }}
                 >
                   <option value="household">Физическое лицо (частник)</option>
@@ -360,7 +369,10 @@ export default function PublicLeadForm({
                     preset: CALC_PRESETS.monthlyBill,
                     onClear: () => setMonthlyBill(0),
                   })}
-                  onChange={(e) => setMonthlyBill(Number(e.target.value.replace(/\s/g, '')) || 0)}
+                  onChange={(e) => {
+                    markCalcTouched();
+                    setMonthlyBill(Number(e.target.value.replace(/\s/g, '')) || 0);
+                  }}
                 />
               </div>
 
@@ -378,7 +390,10 @@ export default function PublicLeadForm({
                     preset: CALC_PRESETS.roofArea,
                     onClear: () => setRoofArea(0),
                   })}
-                  onChange={(e) => setRoofArea(Number(e.target.value.replace(/\s/g, '')) || 0)}
+                  onChange={(e) => {
+                    markCalcTouched();
+                    setRoofArea(Number(e.target.value.replace(/\s/g, '')) || 0);
+                  }}
                 />
               </div>
             </div>
@@ -411,7 +426,7 @@ export default function PublicLeadForm({
             {saving ? 'Отправка…' : submitLabel}
           </button>
 
-          {estimate && (
+          {showEstimate && (
             <div className="public-lead-form__estimate public-lead-form__estimate--footer">
               <h4 className="public-lead-form__estimate-title">Ориентировочный расчёт СЭС</h4>
               <div className="public-lead-form__metrics">
@@ -453,7 +468,7 @@ export default function PublicLeadForm({
             </div>
           )}
 
-          {estimate && (
+          {showEstimate && (
             <p className="public-lead-form__estimate-note public-lead-form__estimate-note--footer">
               Это предварительный расчёт при тарифе {formatTariff(currentTariff)} ₸/кВт·ч, КПД модулей {PANEL_EFFICIENCY_PCT}%
               и инсоляции Казахстана. «Рост тарифа» — окупаемость с учётом среднего повышения тарифа по данным 2019–2026.
@@ -478,6 +493,101 @@ export default function PublicLeadForm({
     </form>
   );
 
+}
+
+
+
+export function CallbackRequestModal({ open, onClose, onSubmitted }) {
+  const [form, setForm] = useState({ fullName: '', phone: '+7' });
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setForm({ fullName: '', phone: '+7' });
+    setFieldErrors({});
+    setError('');
+    setSaving(false);
+    setDone(false);
+    trackFormEvent('callback-floating', 'view');
+  }, [open]);
+
+  if (!open) return null;
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError('');
+    const { valid, fields } = validateCallbackLead(form);
+    if (!valid) {
+      setFieldErrors(fields);
+      trackFormEvent('callback-floating', 'error');
+      return;
+    }
+    setFieldErrors({});
+    setSaving(true);
+    try {
+      await publicApi.createLead({
+        fullName: form.fullName.trim(),
+        phone: form.phone,
+        city: 'Не указан',
+        objectType: 'OTHER',
+        systemType: 'ON_GRID',
+        source: 'Сайт',
+        notes: 'Запрос обратного звонка с сайта',
+      });
+      trackFormEvent('callback-floating', 'submit');
+      setDone(true);
+      onSubmitted?.();
+    } catch (err) {
+      setError(err.message || 'Не удалось отправить заявку');
+      trackFormEvent('callback-floating', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="app-modal-backdrop public-callback-modal" onClick={onClose}>
+      <div className="app-modal" onClick={(e) => e.stopPropagation()}>
+        {done ? (
+          <>
+            <h2>Заявка принята!</h2>
+            <p style={{ fontSize: '0.9375rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
+              Менеджер Solar Galaxy перезвонит вам в ближайшее время.
+            </p>
+            <div className="app-modal__actions">
+              <button type="button" className="btn btn--primary" onClick={onClose}>Закрыть</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h2>Просто перезвоните мне!</h2>
+            <p style={{ fontSize: '0.9375rem', color: 'var(--text-muted)', lineHeight: 1.55, marginBottom: 16 }}>
+              Оставьте имя и телефон — менеджер свяжется с вами.
+            </p>
+            <form onSubmit={submit}>
+              <LeadFormFields
+                form={form}
+                setForm={setForm}
+                fieldErrors={fieldErrors}
+                publicStyle
+                minimal
+              />
+              <FormErrors error={error} fieldErrors={fieldErrors} />
+              <div className="app-modal__actions" style={{ marginTop: 16 }}>
+                <button type="submit" className="btn btn--primary" disabled={saving}>
+                  {saving ? 'Отправка…' : 'Перезвоните мне'}
+                </button>
+                <button type="button" className="btn btn--outline-dark" onClick={onClose}>Отмена</button>
+              </div>
+            </form>
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
 
 

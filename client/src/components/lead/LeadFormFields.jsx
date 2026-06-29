@@ -29,11 +29,40 @@ export default function LeadFormFields({
   managerName,
   publicStyle = false,
   onCapacityFocus,
+  minimal = false,
 }) {
   const setField = (patch) => setForm({ ...form, ...patch });
   const ic = (value, opts) => (publicStyle ? publicInputClass(value, opts) : 'input');
   const Wrap = publicStyle ? 'div' : Fragment;
   const wrapProps = publicStyle ? { className: 'public-lead-form__fields-grid' } : {};
+
+  if (minimal) {
+    return (
+      <Wrap {...wrapProps}>
+        <FormField label="Ваше имя *" error={fieldErrors.fullName}>
+          <input
+            className={ic(form.fullName)}
+            required
+            placeholder="Как к вам обращаться"
+            value={form.fullName}
+            onFocus={publicStyle ? focusSelectAll : undefined}
+            onChange={(e) => setField({ fullName: e.target.value })}
+          />
+        </FormField>
+        <FormField label="Телефон *" error={fieldErrors.phone}>
+          <input
+            className={ic(form.phone, { type: 'phone' })}
+            required
+            inputMode="tel"
+            placeholder="+7 777 123 4567"
+            value={form.phone}
+            onFocus={publicStyle ? (e) => focusPhoneInput(e, form.phone) : undefined}
+            onChange={(e) => setField({ phone: formatKzPhone(e.target.value) })}
+          />
+        </FormField>
+      </Wrap>
+    );
+  }
 
   return (
     <Wrap {...wrapProps}>

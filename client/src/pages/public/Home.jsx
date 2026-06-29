@@ -199,7 +199,7 @@ export default function Home() {
             <span className="section__label">Калькулятор</span>
             <h2 className="section__title">Рост тарифов и расчёт СЭС</h2>
             <p className="section__desc">
-              График роста тарифов, расчёт мощности станции и заявка инженеру — в одной форме.
+              График роста тарифов, расчёт мощности станции и заявка инженеру — или быстрый звонок менеджера.
             </p>
           </Reveal>
           <Reveal delay={0.08}>

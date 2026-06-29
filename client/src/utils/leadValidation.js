@@ -104,3 +104,15 @@ export function validateLeadForm(form, { requireCapacity = false } = {}) {
 
   return { valid: Object.keys(fields).length === 0, fields };
 }
+
+/** Только имя и телефон — быстрый запрос обратного звонка */
+export function validateCallbackLead(form) {
+  const fields = {};
+  if (!form.fullName?.trim() || form.fullName.trim().length < 2) {
+    fields.fullName = 'Имя: укажите минимум 2 символа';
+  }
+  if (!PHONE_REGEX.test(form.phone || '')) {
+    fields.phone = 'Телефон: формат +7 XXX XXX XXXX (10 цифр после +7)';
+  }
+  return { valid: Object.keys(fields).length === 0, fields };
+}
