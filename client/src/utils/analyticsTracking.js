@@ -1,3 +1,5 @@
+import { publicApiUrl } from '../api/apiBase';
+
 const SESSION_KEY = 'sg_analytics_sid';
 
 export function getAnalyticsSessionId() {
@@ -13,32 +15,40 @@ export function getAnalyticsSessionId() {
   }
 }
 
-function sendBeacon(path, body) {
+function postTrack(path, body) {
+  const url = publicApiUrl(path);
   const payload = JSON.stringify(body);
-  const url = `/api/public${path}`;
-  if (navigator.sendBeacon) {
+
+  const sendFetch = () => {
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+      keepalive: true,
+      mode: 'cors',
+    }).catch(() => {});
+  };
+
+  if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
     const blob = new Blob([payload], { type: 'application/json' });
-    navigator.sendBeacon(url, blob);
+    const ok = navigator.sendBeacon(url, blob);
+    if (!ok) sendFetch();
     return;
   }
-  fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: payload,
-    keepalive: true,
-  }).catch(() => {});
+
+  sendFetch();
 }
 
 export function trackPageView(path, referrer) {
-  sendBeacon('/track/pageview', {
+  postTrack('/track/pageview', {
     path,
-    referrer: referrer || document.referrer || undefined,
+    referrer: referrer || (typeof document !== 'undefined' ? document.referrer : undefined) || undefined,
     sessionId: getAnalyticsSessionId(),
   });
 }
 
-export function trackFormEvent(formId, event, path = window.location.pathname) {
-  sendBeacon('/track/form-event', {
+export function trackFormEvent(formId, event, path = typeof window !== 'undefined' ? window.location.pathname : '/') {
+  postTrack('/track/form-event', {
     formId,
     event,
     path,

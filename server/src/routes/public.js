@@ -166,9 +166,11 @@ router.post('/track/pageview', async (req, res) => {
 
     res.status(204).end();
 
-  } catch {
+  } catch (err) {
 
-    res.status(204).end();
+    console.error('[analytics] pageview', err.message);
+
+    res.status(500).json({ error: 'Ошибка записи' });
 
   }
 
@@ -204,9 +206,11 @@ router.post('/track/form-event', async (req, res) => {
 
     res.status(204).end();
 
-  } catch {
+  } catch (err) {
 
-    res.status(204).end();
+    console.error('[analytics] form-event', err.message);
+
+    res.status(500).json({ error: 'Ошибка записи' });
 
   }
 

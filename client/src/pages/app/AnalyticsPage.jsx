@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { analyticsApi } from '../../api';
 import { useAuth } from '../../context/AuthContext';
@@ -43,17 +43,27 @@ export default function AnalyticsPage() {
   const [days, setDays] = useState(30);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [updatedAt, setUpdatedAt] = useState(null);
 
-  const load = () => {
-    setLoading(true);
+  const load = useCallback((silent = false) => {
+    if (!silent) setLoading(true);
+    else setRefreshing(true);
     analyticsApi.summary(days)
-      .then((res) => { setData(res); setError(''); })
+      .then((res) => {
+        setData(res);
+        setError('');
+        setUpdatedAt(new Date());
+      })
       .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  };
+      .finally(() => {
+        setLoading(false);
+        setRefreshing(false);
+      });
+  }, [days]);
 
-  useEffect(load, [days]);
+  useEffect(() => { load(); }, [load]);
 
   if (!isAdmin) return <Navigate to="/app" replace />;
 
@@ -82,6 +92,11 @@ export default function AnalyticsPage() {
             <h1 className="app-page-title">Аналитика сайта</h1>
             <p className="app-page-desc">
               Посещения, воронка форм и заявки с публичного сайта.
+              {updatedAt && (
+                <span className="analytics-updated">
+                  {' '}Обновлено: {formatDateTime(updatedAt)}
+                </span>
+              )}
             </p>
           </div>
           <div className="analytics-period">
@@ -95,8 +110,13 @@ export default function AnalyticsPage() {
                 {opt.label}
               </button>
             ))}
-            <button type="button" className="btn btn--outline-dark btn--sm" onClick={load}>
-              Обновить
+            <button
+              type="button"
+              className="btn btn--outline-dark btn--sm"
+              onClick={() => load(true)}
+              disabled={loading || refreshing}
+            >
+              {refreshing ? 'Обновление…' : 'Обновить'}
             </button>
           </div>
         </div>
@@ -104,6 +124,7 @@ export default function AnalyticsPage() {
 
       {error && <p className="error-msg" style={{ marginBottom: 16 }}>{error}</p>}
       {loading && !data && <p style={{ color: 'var(--text-muted)' }}>Загрузка…</p>}
+      {refreshing && data && <p className="analytics-refresh-hint">Обновление данных…</p>}
 
       {data && (
         <>
