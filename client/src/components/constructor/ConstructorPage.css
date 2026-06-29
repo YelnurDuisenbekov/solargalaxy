@@ -951,6 +951,20 @@
   }
 }
 
+.constructor-map-fallback-note {
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: #f0f7ff;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+}
+
+.constructor-map-fallback-note code {
+  font-size: 0.75rem;
+}
+
 .constructor-map-hint {
   margin: 8px 0 0;
   font-size: 0.82rem;
