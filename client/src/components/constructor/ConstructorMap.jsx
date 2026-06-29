@@ -57,7 +57,12 @@ function buildLayers() {
 
     'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
 
-    { attribution: 'Esri', maxZoom: 20 },
+    {
+      attribution: 'Esri',
+      // В ряде районов KZ снимок только до z17; z18+ — плейсхолдер «Map data not yet available»
+      maxNativeZoom: 17,
+      maxZoom: 20,
+    },
 
   );
 
@@ -204,7 +209,7 @@ export default function ConstructorMap({
 
 
 
-    const map = L.map(mapRef.current, { zoomControl: true }).setView([lat, lng], 18);
+    const map = L.map(mapRef.current, { zoomControl: true, maxZoom: 20 }).setView([lat, lng], 17);
 
     const layers = buildLayers();
 
@@ -346,7 +351,7 @@ export default function ConstructorMap({
 
     if (!map || !flyToKey) return;
 
-    map.flyTo([lat, lng], 19, { duration: 1.2 });
+    map.flyTo([lat, lng], 17, { duration: 1.2 });
 
   }, [flyToKey, lat, lng]);
 
