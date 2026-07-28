@@ -22,8 +22,11 @@
     "render:connect": "node scripts/render-connect-local.mjs"
   },
   "devDependencies": {
+    "@sparticuz/chromium": "^133.0.0",
     "concurrently": "^9.1.2",
     "opentype.js": "^2.0.0",
+    "puppeteer": "^24.36.1",
+    "puppeteer-core": "^24.36.1",
     "sharp": "^0.35.3"
   }
 }

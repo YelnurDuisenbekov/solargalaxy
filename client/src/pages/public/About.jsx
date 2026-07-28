@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Reveal, RevealGroup, RevealItem } from '../../components/motion/ScrollReveal';
 import SeoHead from '../../components/SeoHead';
+import { pageMeta } from '../../seo/siteMeta';
 import { formatNum } from '../../utils/format';
 import './About.css';
 
@@ -59,12 +60,16 @@ const SOLAR_CARDS = [
 ];
 
 export default function About() {
+  const seo = pageMeta('/about');
+
   return (
     <>
       <SeoHead
-        title="О компании"
-        description="Solar Galaxy — инжиниринговая компания полного цикла: проектирование, поставка и монтаж солнечных электростанций под ключ в Казахстане."
+        title={seo.title}
+        description={seo.description}
         path="/about"
+        jsonLd
+        jsonLdKind="organization"
       />
       <section className="about-hero">
         <div className="container">

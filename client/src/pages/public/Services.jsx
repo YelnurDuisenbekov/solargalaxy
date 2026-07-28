@@ -1,5 +1,6 @@
 import { Reveal, RevealGroup, RevealItem } from '../../components/motion/ScrollReveal';
 import SeoHead from '../../components/SeoHead';
+import { pageMeta } from '../../seo/siteMeta';
 import './Services.css';
 
 const EQUIPMENT = [
@@ -64,17 +65,21 @@ const SOLUTIONS = [
 ];
 
 export default function Services() {
+  const seo = pageMeta('/services');
+
   return (
     <>
       <SeoHead
-        title="Услуги и оборудование"
-        description="Сетевые, автономные и гибридные СЭС под ключ: панели, инверторы, аккумуляторы, проектирование, монтаж и пусконаладка в Казахстане."
+        title={seo.title}
+        description={seo.description}
         path="/services"
+        jsonLd
+        jsonLdKind="services"
       />
       <section className="services-hero">
         <div className="container">
           <Reveal>
-            <h1>Услуги и оборудование</h1>
+            <h1>Монтаж и проектирование солнечных электростанций</h1>
             <p>
               Солнечные электростанции под ключ в Казахстане — от подбора панелей
               до пусконаладки. Экономия на электроэнергии до 70%, окупаемость от 2 лет.

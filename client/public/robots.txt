@@ -1,7 +1,11 @@
 User-agent: *
 Allow: /
+Allow: /about
+Allow: /services
+Allow: /contact
 Disallow: /app
 Disallow: /app/
 Disallow: /login
 
+Host: https://solargalaxy.kz
 Sitemap: https://solargalaxy.kz/sitemap.xml

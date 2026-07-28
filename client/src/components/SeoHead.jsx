@@ -6,6 +6,9 @@ import {
   SITE_NAME,
   absoluteUrl,
   buildOrganizationJsonLd,
+  buildServicesJsonLd,
+  buildWebSiteJsonLd,
+  jsonLdForPage,
 } from '../seo/siteMeta';
 
 function upsertMeta(attr, key, content) {
@@ -44,9 +47,19 @@ function upsertJsonLd(id, data) {
   el.textContent = JSON.stringify(data);
 }
 
+function resolveJsonLd({ path, jsonLd, jsonLdKind }) {
+  if (jsonLd === false) return null;
+  if (Array.isArray(jsonLd)) return jsonLd;
+  if (jsonLd && typeof jsonLd === 'object') return jsonLd;
+  if (jsonLdKind === 'services') return buildServicesJsonLd();
+  if (jsonLdKind === 'organization') return buildOrganizationJsonLd();
+  if (jsonLdKind === 'website') return buildWebSiteJsonLd();
+  return jsonLdForPage(path);
+}
+
 /**
- * Лёгкий SEO-хелпер без внешних зависимостей.
- * @param {{ title?: string, description?: string, path?: string, noindex?: boolean, jsonLd?: boolean }} props
+ * SEO-хелпер: title, description, canonical, OG, JSON-LD.
+ * @param {{ title?: string, description?: string, path?: string, noindex?: boolean, jsonLd?: boolean|object|array, jsonLdKind?: string }} props
  */
 export default function SeoHead({
   title = DEFAULT_TITLE,
@@ -54,11 +67,13 @@ export default function SeoHead({
   path = '/',
   noindex = false,
   jsonLd = false,
+  jsonLdKind,
 }) {
   useEffect(() => {
     const fullTitle = title.includes(SITE_NAME) ? title : `${title} | ${SITE_NAME}`;
     const url = absoluteUrl(path);
     const robots = noindex ? 'noindex, nofollow' : 'index, follow';
+    const ld = resolveJsonLd({ path, jsonLd, jsonLdKind });
 
     document.title = fullTitle;
 
@@ -77,12 +92,12 @@ export default function SeoHead({
     upsertMeta('name', 'twitter:image', OG_IMAGE);
 
     upsertLink('canonical', url);
-    upsertJsonLd('sg-jsonld-org', jsonLd ? buildOrganizationJsonLd() : null);
+    upsertJsonLd('sg-jsonld', ld);
 
     return () => {
-      if (!jsonLd) upsertJsonLd('sg-jsonld-org', null);
+      upsertJsonLd('sg-jsonld', null);
     };
-  }, [title, description, path, noindex, jsonLd]);
+  }, [title, description, path, noindex, jsonLd, jsonLdKind]);
 
   return null;
 }

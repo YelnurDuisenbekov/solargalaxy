@@ -2,7 +2,7 @@ import { useState } from 'react';
 import PublicLeadForm, { RegisterPromptModal } from '../../components/lead/PublicLeadForm';
 import { Reveal, RevealGroup, RevealItem } from '../../components/motion/ScrollReveal';
 import SeoHead from '../../components/SeoHead';
-import { SITE_CONTACTS } from '../../seo/siteMeta';
+import { pageMeta, SITE_CONTACTS } from '../../seo/siteMeta';
 import './Contact.css';
 
 const CONTACTS = {
@@ -24,18 +24,21 @@ const INFO_CARDS = [
 
 export default function Contact() {
   const [registerPrompt, setRegisterPrompt] = useState(null);
+  const seo = pageMeta('/contact');
 
   return (
     <>
       <SeoHead
-        title="Контакты"
-        description={`Свяжитесь с Solar Galaxy: ${CONTACTS.phone}, офис в ${CONTACTS.city}. Заявка на расчёт СЭС под ключ.`}
+        title={seo.title}
+        description={seo.description}
         path="/contact"
+        jsonLd
+        jsonLdKind="organization"
       />
       <section className="contact-hero">
         <div className="container">
           <Reveal>
-            <h1>Контакты</h1>
+            <h1>Контакты Solar Galaxy в Казахстане</h1>
             <p>Готовы помочь с потребностями в солнечной энергии. Свяжитесь с нами для индивидуального решения.</p>
           </Reveal>
         </div>
