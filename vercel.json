@@ -2,7 +2,7 @@
   "installCommand": "npm install",
   "buildCommand": "npm run build --workspace=client",
   "outputDirectory": "client/dist",
-  "rewrites": [{ "source": "/((?!robots\\.txt|sitemap\\.xml).*)", "destination": "/index.html" }],
+  "rewrites": [{ "source": "/((?!robots\\.txt|sitemap\\.xml|google[^/]+\\.html).*)", "destination": "/index.html" }],
   "headers": [
     {
       "source": "/(.*)",
