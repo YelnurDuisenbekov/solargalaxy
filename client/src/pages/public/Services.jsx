@@ -1,4 +1,5 @@
 import { Reveal, RevealGroup, RevealItem } from '../../components/motion/ScrollReveal';
+import SeoHead from '../../components/SeoHead';
 import './Services.css';
 
 const EQUIPMENT = [
@@ -65,6 +66,11 @@ const SOLUTIONS = [
 export default function Services() {
   return (
     <>
+      <SeoHead
+        title="Услуги и оборудование"
+        description="Сетевые, автономные и гибридные СЭС под ключ: панели, инверторы, аккумуляторы, проектирование, монтаж и пусконаладка в Казахстане."
+        path="/services"
+      />
       <section className="services-hero">
         <div className="container">
           <Reveal>

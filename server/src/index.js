@@ -14,26 +14,49 @@ import publicRoutes from './routes/public.js';
 import whatsappRoutes from './routes/whatsapp.js';
 import proposalsRoutes from './routes/proposals.js';
 import analyticsRoutes from './routes/analytics.js';
-import { syncAllProjectReservations, ensureReservationsSynced } from './lib/stockReservation.js';
+import { ensureReservationsSynced } from './lib/stockReservation.js';
+import {
+  apiRateLimiter,
+  permissionsPolicyHeader,
+  securityHeaders,
+} from './lib/security.js';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+const isProd = process.env.NODE_ENV === 'production';
+
+if (isProd && (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'dev-secret')) {
+  console.error('FATAL: JWT_SECRET must be set to a strong value in production');
+  process.exit(1);
+}
+
+app.set('trust proxy', 1);
 
 const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);
 
+app.use(securityHeaders());
+app.use(permissionsPolicyHeader);
+
 app.use(cors({
   origin(origin, callback) {
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
+    // Preview-деплои Vercel (без credentials wildcard *)
     if (/^https:\/\/[\w.-]+\.vercel\.app$/.test(origin)) return callback(null, true);
     callback(null, false);
   },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 86400,
 }));
-app.use(express.json());
+
+// Base64-вложения проектов до ~15 МБ; общий потолок против DoS
+app.use(express.json({ limit: '16mb' }));
+app.use('/api', apiRateLimiter);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', service: 'solargalaxy-api' });
@@ -55,7 +78,10 @@ app.use('/api/analytics', analyticsRoutes);
 
 app.use((err, _req, res, _next) => {
   console.error(err);
-  res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  const status = err.status || err.statusCode || 500;
+  const payload = { error: isProd ? 'Внутренняя ошибка сервера' : (err.message || 'Внутренняя ошибка сервера') };
+  if (!isProd && err.stack) payload.stack = undefined; // never leak stack to client
+  res.status(status >= 400 && status < 600 ? status : 500).json({ error: payload.error });
 });
 
 app.listen(PORT, () => {

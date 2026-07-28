@@ -13,6 +13,7 @@ import {
 import { linkProjectsToClient, linkLeadsToClient } from '../lib/projectIdentity.js';
 import { phoneSchema } from '../lib/leadValidation.js';
 import { sendClientCredentials } from '../lib/clientCredentials.js';
+import { authRateLimiter } from '../lib/security.js';
 
 const router = Router();
 
@@ -50,11 +51,11 @@ async function findUserByLogin(login) {
   });
 }
 
-router.post('/login', async (req, res) => {
+router.post('/login', authRateLimiter, async (req, res) => {
   try {
     const schema = z.object({
-      login: z.string().min(2),
-      password: z.string().min(6),
+      login: z.string().min(2).max(120),
+      password: z.string().min(6).max(200),
     });
     const { login, password } = schema.parse(req.body);
 
@@ -84,13 +85,13 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.post('/register-client', async (req, res) => {
+router.post('/register-client', authRateLimiter, async (req, res) => {
   try {
     const schema = z.object({
-      password: z.string().min(6),
-      fullName: z.string().min(2),
+      password: z.string().min(6).max(200),
+      fullName: z.string().min(2).max(120),
       phone: phoneSchema,
-      company: z.string().optional(),
+      company: z.string().max(200).optional(),
     });
     const data = schema.parse(req.body);
 
@@ -112,10 +113,10 @@ router.post('/register-client', async (req, res) => {
       data: {
         login,
         email,
-        fullName: data.fullName,
+        fullName: data.fullName.trim().slice(0, 120),
         phone: phoneDisplay,
-        company: data.company,
-        passwordHash: await bcrypt.hash(data.password, 10),
+        company: data.company?.trim().slice(0, 200) || null,
+        passwordHash: await bcrypt.hash(data.password, 12),
         role: 'CLIENT',
       },
       include: { permissions: true },

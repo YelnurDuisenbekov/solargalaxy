@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Reveal, RevealGroup, RevealItem } from '../../components/motion/ScrollReveal';
+import SeoHead from '../../components/SeoHead';
 import { formatNum } from '../../utils/format';
 import './About.css';
 
@@ -60,6 +61,11 @@ const SOLAR_CARDS = [
 export default function About() {
   return (
     <>
+      <SeoHead
+        title="О компании"
+        description="Solar Galaxy — инжиниринговая компания полного цикла: проектирование, поставка и монтаж солнечных электростанций под ключ в Казахстане."
+        path="/about"
+      />
       <section className="about-hero">
         <div className="container">
           <Reveal>

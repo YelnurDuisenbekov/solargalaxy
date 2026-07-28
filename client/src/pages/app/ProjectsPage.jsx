@@ -21,6 +21,7 @@ import {
   MAX_GLOBAL_KIT_DISCOUNT,
   MATERIALS_APPROVAL_STATUS,
 } from '../../utils/materialDiscount';
+import ProjectKPActions from '../../components/ProjectKPActions';
 import './app-pages.css';
 
 const PHASES = Object.keys(PROJECT_PHASE);
@@ -1440,6 +1441,9 @@ function ProjectMaterialsPanel({
             <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>
               Итого: {formatMoney(draftKitTotal)}
             </span>
+          )}
+          {!editMode && displayMaterials.length > 0 && (
+            <ProjectKPActions project={project} user={user} />
           )}
           {canEditRows && !editMode && (
             <button type="button" className="btn btn--primary" onClick={startEdit}>Редактировать</button>

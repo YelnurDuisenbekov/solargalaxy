@@ -1,16 +1,18 @@
 import { useState } from 'react';
 import PublicLeadForm, { RegisterPromptModal } from '../../components/lead/PublicLeadForm';
 import { Reveal, RevealGroup, RevealItem } from '../../components/motion/ScrollReveal';
+import SeoHead from '../../components/SeoHead';
+import { SITE_CONTACTS } from '../../seo/siteMeta';
 import './Contact.css';
 
 const CONTACTS = {
-  phone: '+7 700 330 1999',
-  phoneHref: 'tel:+77003301999',
-  city: 'г. Шымкент',
-  address: 'ул. Байтурсынова 85 (БЦ Орда), каб. 210',
-  fullAddress: 'г. Шымкент, ул. Байтурсынова 85 (БЦ Орда), каб. 210',
-  mapQuery: 'Шымкент, ул. Байтурсынова 85',
-  hours: 'Пн–Пт: 9:00–18:00',
+  phone: SITE_CONTACTS.phone,
+  phoneHref: `tel:${SITE_CONTACTS.phoneE164}`,
+  city: `г. ${SITE_CONTACTS.city}`,
+  address: SITE_CONTACTS.streetAddress,
+  fullAddress: `г. ${SITE_CONTACTS.city}, ${SITE_CONTACTS.streetAddress}`,
+  mapQuery: `${SITE_CONTACTS.city}, ул. Байтурсынова 85`,
+  hours: SITE_CONTACTS.hoursDisplay,
 };
 
 const INFO_CARDS = [
@@ -25,6 +27,11 @@ export default function Contact() {
 
   return (
     <>
+      <SeoHead
+        title="Контакты"
+        description={`Свяжитесь с Solar Galaxy: ${CONTACTS.phone}, офис в ${CONTACTS.city}. Заявка на расчёт СЭС под ключ.`}
+        path="/contact"
+      />
       <section className="contact-hero">
         <div className="container">
           <Reveal>

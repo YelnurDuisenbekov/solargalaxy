@@ -2,7 +2,10 @@ import jwt from 'jsonwebtoken';
 import prisma from './prisma.js';
 import { resolvePermissions, hasAnyPermission } from './permissions.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
+const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'dev-secret');
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET is required');
+}
 
 export function signToken(user) {
   return jwt.sign(

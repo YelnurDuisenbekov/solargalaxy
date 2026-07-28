@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import PublicLeadForm, { RegisterPromptModal } from '../../components/lead/PublicLeadForm';
 import { Reveal, RevealGroup, RevealItem } from '../../components/motion/ScrollReveal';
+import SeoHead from '../../components/SeoHead';
+import { DEFAULT_DESCRIPTION, DEFAULT_TITLE } from '../../seo/siteMeta';
 import { scrollToQuoteForm } from '../../utils/scrollToQuoteForm';
 import './Home.css';
 
@@ -32,6 +34,12 @@ export default function Home() {
 
   return (
     <>
+      <SeoHead
+        title={DEFAULT_TITLE}
+        description={DEFAULT_DESCRIPTION}
+        path="/"
+        jsonLd
+      />
       <section className="hero">
         <div className="container hero__inner">
           <Reveal>

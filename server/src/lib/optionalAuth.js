@@ -1,6 +1,9 @@
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
+const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'dev-secret');
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET is required');
+}
 
 /** Устанавливает req.user, если передан Bearer-токен; иначе продолжает без авторизации. */
 export function optionalAuth(req, _res, next) {
