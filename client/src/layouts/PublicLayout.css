@@ -184,7 +184,63 @@
   transition: transform 0.15s, background 0.25s, box-shadow 0.25s;
 }
 
+.floating-quote-btn--large {
+  padding: 18px 28px;
+  font-size: 1.0625rem;
+  min-width: 200px;
+  box-shadow: 0 10px 32px rgba(27, 138, 69, 0.5);
+}
+
+.floating-quote-stack {
+  position: fixed;
+  right: 20px;
+  bottom: 24px;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  max-width: min(320px, calc(100vw - 28px));
+}
+
+.floating-quote-stack .floating-quote-btn {
+  position: relative;
+  right: auto;
+  bottom: auto;
+  width: 100%;
+  padding: 16px 22px;
+  font-size: 1rem;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.25;
+}
+
+.floating-quote-stack__or {
+  display: block;
+  text-align: center;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-muted, #5a6b74);
+  padding: 6px 0;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+}
+
+.floating-quote-btn--calc {
+  background: var(--green);
+  box-shadow: 0 8px 28px rgba(27, 138, 69, 0.45);
+  animation: floating-quote-blink 1.6s ease-in-out infinite;
+}
+
+.floating-quote-btn--calc .floating-quote-btn__pulse {
+  border-color: rgba(27, 138, 69, 0.55);
+  animation: floating-quote-ring 1.6s ease-out infinite;
+}
+
 .floating-quote-btn--near-form {
+  position: relative;
+  right: auto;
+  bottom: auto;
   background: #d62828;
   box-shadow: 0 8px 28px rgba(214, 40, 40, 0.5);
   animation: floating-quote-blink-red 1.6s ease-in-out infinite;
@@ -213,6 +269,10 @@
   position: relative;
   z-index: 1;
   white-space: nowrap;
+}
+
+.floating-quote-stack .floating-quote-btn__label {
+  white-space: normal;
 }
 
 @keyframes floating-quote-blink {
@@ -260,10 +320,21 @@
 }
 
 @media (max-width: 480px) {
-  .floating-quote-btn {
+  .floating-quote-btn--large {
     right: 14px;
     bottom: 16px;
-    padding: 12px 18px;
-    font-size: 0.875rem;
+    padding: 16px 22px;
+    font-size: 1rem;
+    min-width: 0;
+  }
+
+  .floating-quote-stack {
+    right: 14px;
+    bottom: 16px;
+  }
+
+  .floating-quote-stack .floating-quote-btn {
+    padding: 14px 18px;
+    font-size: 0.9375rem;
   }
 }

@@ -35,14 +35,8 @@ export default function FloatingQuoteButton() {
     };
   }, [pathname]);
 
-  const label = nearForm ? 'Заказать обратный звонок' : 'Получить расчет';
-
-  const handleClick = (e) => {
+  const goToQuote = (e) => {
     e.preventDefault();
-    if (nearForm) {
-      setModalOpen(true);
-      return;
-    }
     if (pathname === '/') {
       scrollToQuoteForm();
       return;
@@ -50,16 +44,48 @@ export default function FloatingQuoteButton() {
     navigate({ pathname: '/', hash: 'quote-form' });
   };
 
+  const openCallback = (e) => {
+    e.preventDefault();
+    setModalOpen(true);
+  };
+
+  if (nearForm) {
+    return (
+      <>
+        <div className="floating-quote-stack" aria-label="Действия у калькулятора">
+          <button
+            type="button"
+            className="floating-quote-btn floating-quote-btn--calc"
+            onClick={goToQuote}
+          >
+            <span className="floating-quote-btn__pulse" aria-hidden />
+            <span className="floating-quote-btn__label">Получить расчёт</span>
+          </button>
+          <span className="floating-quote-stack__or">или</span>
+          <button
+            type="button"
+            className="floating-quote-btn floating-quote-btn--near-form"
+            onClick={openCallback}
+          >
+            <span className="floating-quote-btn__pulse" aria-hidden />
+            <span className="floating-quote-btn__label">Заказать обратный звонок</span>
+          </button>
+        </div>
+        <CallbackRequestModal open={modalOpen} onClose={() => setModalOpen(false)} />
+      </>
+    );
+  }
+
   return (
     <>
       <button
         type="button"
-        className={`floating-quote-btn${nearForm ? ' floating-quote-btn--near-form' : ''}`}
-        aria-label={label}
-        onClick={handleClick}
+        className="floating-quote-btn floating-quote-btn--large"
+        aria-label="Получить расчёт"
+        onClick={goToQuote}
       >
         <span className="floating-quote-btn__pulse" aria-hidden />
-        <span className="floating-quote-btn__label">{label}</span>
+        <span className="floating-quote-btn__label">Получить расчёт</span>
       </button>
       <CallbackRequestModal open={modalOpen} onClose={() => setModalOpen(false)} />
     </>
